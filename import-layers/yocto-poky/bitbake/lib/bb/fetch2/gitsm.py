@@ -31,7 +31,6 @@ NOTE: Switching a SRC_URI from "git://" to "gitsm://" requires a clean of your r
 
 import os
 import bb
-from   bb    import data
 from   bb.fetch2.git import Git
 from   bb.fetch2 import runfetchcmd
 from   bb.fetch2 import logger
@@ -43,10 +42,10 @@ class GitSM(Git):
         """
         return ud.type in ['gitsm']
 
-    def uses_submodules(self, ud, d):
+    def uses_submodules(self, ud, d, wd):
         for name in ud.names:
             try:
-                runfetchcmd("%s show %s:.gitmodules" % (ud.basecmd, ud.revisions[name]), d, quiet=True)
+                runfetchcmd("%s show %s:.gitmodules" % (ud.basecmd, ud.revisions[name]), d, quiet=True, workdir=wd)
                 return True
             except bb.fetch.FetchError:
                 pass
@@ -107,28 +106,30 @@ class GitSM(Git):
         os.mkdir(tmpclonedir)
         os.rename(ud.clonedir, gitdir)
         runfetchcmd("sed " + gitdir + "/config -i -e 's/bare.*=.*true/bare = false/'", d)
-        os.chdir(tmpclonedir)
-        runfetchcmd(ud.basecmd + " reset --hard", d)
-        runfetchcmd(ud.basecmd + " checkout " + ud.revisions[ud.names[0]], d)
-        runfetchcmd(ud.basecmd + " submodule update --init --recursive", d)
+        runfetchcmd(ud.basecmd + " reset --hard", d, workdir=tmpclonedir)
+        runfetchcmd(ud.basecmd + " checkout -f " + ud.revisions[ud.names[0]], d, workdir=tmpclonedir)
+        runfetchcmd(ud.basecmd + " submodule update --init --recursive", d, workdir=tmpclonedir)
         self._set_relative_paths(tmpclonedir)
-        runfetchcmd("sed " + gitdir + "/config -i -e 's/bare.*=.*false/bare = true/'", d)
+        runfetchcmd("sed " + gitdir + "/config -i -e 's/bare.*=.*false/bare = true/'", d, workdir=tmpclonedir)
         os.rename(gitdir, ud.clonedir,)
         bb.utils.remove(tmpclonedir, True)
 
     def download(self, ud, d):
         Git.download(self, ud, d)
 
-        os.chdir(ud.clonedir)
-        submodules = self.uses_submodules(ud, d)
-        if submodules:
-            self.update_submodules(ud, d)
+        if not ud.shallow or ud.localpath != ud.fullshallow:
+            submodules = self.uses_submodules(ud, d, ud.clonedir)
+            if submodules:
+                self.update_submodules(ud, d)
+
+    def clone_shallow_local(self, ud, dest, d):
+        super(GitSM, self).clone_shallow_local(ud, dest, d)
+
+        runfetchcmd('cp -fpPRH "%s/modules" "%s/"' % (ud.clonedir, os.path.join(dest, '.git')), d)
 
     def unpack(self, ud, destdir, d):
         Git.unpack(self, ud, destdir, d)
-        
-        os.chdir(ud.destdir)
-        submodules = self.uses_submodules(ud, d)
-        if submodules:
-            runfetchcmd(ud.basecmd + " checkout " + ud.revisions[ud.names[0]], d)
-            runfetchcmd(ud.basecmd + " submodule update --init --recursive", d)
+
+        if self.uses_submodules(ud, d, ud.destdir):
+            runfetchcmd(ud.basecmd + " checkout " + ud.revisions[ud.names[0]], d, workdir=ud.destdir)
+            runfetchcmd(ud.basecmd + " submodule update --init --recursive", d, workdir=ud.destdir)

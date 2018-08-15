@@ -1,31 +1,42 @@
 SUMMARY = "Phosphor DBUS to REST WSGI Application"
 DESCRIPTION = "Phosphor DBUS to REST WSGI Application."
-HOMEPAGE = "http://github.com/openbmc/phosphor-rest-server"
 PR = "r1"
-LICENSE = "Apache-2.0"
-LIC_FILES_CHKSUM = "file://${WORKDIR}/git/LICENSE;md5=fa818a259cbed7ce8bc2a22d35a464fc"
 
 inherit allarch
 inherit obmc-phosphor-systemd
 inherit setuptools
+inherit obmc-phosphor-discovery-service
 
-RRECOMMENDS_${PN} += "virtual-obmc-wsgihost"
+require phosphor-rest.inc
+
+RRECOMMENDS_${PN} += " \
+        virtual-obmc-wsgihost \
+        python-gevent-websocket \
+        "
 
 RDEPENDS_${PN} += " \
         python-xml \
         python-dbus \
-        obmc-mapper \
+        phosphor-mapper \
         python-bottle \
         python-spwd \
         pyphosphor-utils \
         pyphosphor-dbus \
         pyphosphor-wsgi-apps-ns \
         "
-SRC_URI += "git://github.com/openbmc/phosphor-rest-server"
+SRC_URI += "file://url_config.json \
+           "
 
-SRCREV = "7bc6d8d39daebe3529c4c31a8caa0288dfb0ecd5"
+FILES_${PN}_append = " ${datadir}/rest-dbus/url_config.json"
 
 S = "${WORKDIR}/git/module"
 SYSTEMD_SERVICE_${PN} = ""
 SYSTEMD_OVERRIDE_${PN} += "rest-dbus.conf:obmc-mapper.target.d/rest-dbus.conf"
 SYSTEMD_ENVIRONMENT_FILE_${PN} += "obmc/wsgi_app"
+REGISTERED_SERVICES_${PN} += "phosphor_rest:tcp:443"
+
+do_install_append(){
+    install -d ${D}${datadir}/rest-dbus
+    install -m 0644 -D ${WORKDIR}/url_config.json \
+        ${D}${datadir}/rest-dbus/url_config.json
+}

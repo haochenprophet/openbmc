@@ -3,20 +3,26 @@ LICENSE = "MIT & LGPLv2+ & GPLv3 & GPLv2+ & BSD-3-Clause"
 LIC_FILES_CHKSUM = "file://COPYING;md5=b2beded7103a3d8a442a2a0391d607b0"
 
 SRC_URI = "git://anongit.freedesktop.org/piglit \
-           file://0001-tests-Fix-missing-include-of-Xutil.h.patch"
+           file://0001-cmake-install-bash-completions-in-the-right-place.patch \
+           file://0001-tests-Use-FE_UPWARD-only-if-its-defined-in-fenv.h.patch \
+           "
+UPSTREAM_CHECK_COMMITS = "1"
 
-# From 2015-02-19
-SRCREV = "c4585427913e4cb28994b4bfb11d49778273aa2c"
+# From 2018-02-26
+SRCREV = "4ce0887e2f7f848d2be2e435a2d0f3c80e44ea3b"
 # (when PV goes above 1.0 remove the trailing r)
 PV = "1.0+gitr${SRCPV}"
 
 S = "${WORKDIR}/git"
 
-DEPENDS = "virtual/libx11 libxrender waffle virtual/libgl libglu python-mako-native python-numpy-native"
+DEPENDS = "libpng virtual/libx11 libxkbcommon libxrender waffle virtual/libgl libglu python3-mako-native python3-numpy-native python3-six-native virtual/egl"
 
-inherit cmake pythonnative distro_features_check
+inherit cmake python3native distro_features_check bash-completion
 # depends on virtual/libx11
 REQUIRED_DISTRO_FEATURES = "x11"
+
+# depends on virtual/libgl
+REQUIRED_DISTRO_FEATURES += "opengl"
 
 # The built scripts go into the temporary directory according to tempfile
 # (typically /tmp) which can race if multiple builds happen on the same machine,
@@ -34,10 +40,13 @@ do_configure_prepend() {
    fi
 }
 
-RDEPENDS_${PN} = "waffle python python-mako python-json python-subprocess \
-	python-argparse python-importlib python-unixadmin python-xml \
-	python-multiprocessing python-textutils python-netserver python-shell \
-	mesa-demos bash \
+OECMAKE_TARGET_INSTALL = "install/strip"
+
+RDEPENDS_${PN} = "waffle python3 python3-mako python3-json \
+	python3-misc \
+	python3-unixadmin python3-xml python3-multiprocessing \
+	python3-six python3-shell python3-io \
+	python3-netserver mesa-demos bash \
 	"
 
-INSANE_SKIP_${PN} += "dev-so"
+INSANE_SKIP_${PN} += "dev-so already-stripped"

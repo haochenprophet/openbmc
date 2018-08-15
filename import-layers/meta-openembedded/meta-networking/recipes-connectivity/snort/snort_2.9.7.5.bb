@@ -4,7 +4,8 @@ SECTION = "net"
 LICENSE = "GPL-2.0"
 LIC_FILES_CHKSUM = "file://COPYING;md5=78fa8ef966b48fbf9095e13cc92377c5"
 
-DEPENDS = "libpcap libpcre daq libdnet util-linux"
+DEPENDS = "xz libpcap libpcre daq libdnet util-linux daq-native"
+DEPENDS_append_libc-musl = " libtirpc"
 
 SRC_URI = " ${GENTOO_MIRROR}/${BP}.tar.gz;name=tarball \
     file://snort.init \
@@ -14,6 +15,7 @@ SRC_URI = " ${GENTOO_MIRROR}/${BP}.tar.gz;name=tarball \
     file://disable-daq-verdict-retry.patch \
     file://0001-libpcap-search-sysroot-for-headers.patch \
     file://0001-fix-do_package-failed-since-snort-2.9.7.0.patch \
+    file://fix-host-contamination-when-enable-static-daq.patch \
 "
 
 SRC_URI[tarball.md5sum] = "fd271788c0f8876be87a858a9142f202"
@@ -30,7 +32,7 @@ EXTRA_OECONF = " \
     --enable-reload \
     --enable-reload-error-restart \
     --enable-targetbased \
-    --disable-static-daq \
+    --enable-static-daq \
     --with-dnet-includes=${STAGING_INCDIR} \
     --with-dnet-libraries=${STAGING_LIBDIR} \
     --with-libpcre-includes=${STAGING_INCDIR} \
@@ -42,8 +44,12 @@ EXTRA_OECONF = " \
 # if you want to disable it, you need to patch configure.in first
 # AC_CHECK_HEADERS([openssl/sha.h],, SHA_H="no")
 # is called even with --without-openssl-includes
-PACKAGECONFIG ?= "openssl"
+PACKAGECONFIG ?= "openssl lzma"
 PACKAGECONFIG[openssl] = "--with-openssl-includes=${STAGING_INCDIR} --with-openssl-libraries=${STAGING_LIBDIR}, --without-openssl-includes --without-openssl-libraries, openssl,"
+PACKAGECONFIG[lzma] = "--with-lzma-includes=${STAGING_INCDIR} --with-lzma-libraries=${STAGING_LIBDIR}, --without-lzma-includes --without-lzma-libraries, xz,"
+
+CFLAGS_append_libc-musl = " -I${STAGING_INCDIR}/tirpc"
+LDFLAGS_append_libc-musl = " -ltirpc"
 
 do_install_append() {
     install -d ${D}${sysconfdir}/snort/rules
@@ -52,10 +58,23 @@ do_install_append() {
     for i in map config conf dtd; do
         cp ${S}/etc/*.$i ${D}${sysconfdir}/snort/
     done
+
+    # fix the hardcoded path and lib name
+    # comment out the rules that are not provided
+    sed -i -e 's#/usr/local/lib#${libdir}#' \
+           -e 's#\.\./\(.*rules\)#${sysconfdir}/snort/\1#' \
+           -e 's#\(libsf_engine.so\)#\1.0#' \
+           -e 's/^\(include $RULE_PATH\)/#\1/' \
+           -e 's/^\(dynamicdetection\)/#\1/' \
+           -e '/preprocessor reputation/,/blacklist/ s/^/#/' \
+           ${D}${sysconfdir}/snort/snort.conf
+
     cp ${S}/preproc_rules/*.rules ${D}${sysconfdir}/snort/preproc_rules/
     install -m 755 ${WORKDIR}/snort.init ${D}${sysconfdir}/init.d/snort
     mkdir -p ${D}${localstatedir}/log/snort
     install -d ${D}/var/log/snort
+
+    sed -i 's/-fdebug-prefix-map[^ ]*//g; s#${STAGING_DIR_TARGET}##g' ${D}${libdir}/pkgconfig/*.pc
 }
 
 FILES_${PN} += " \
@@ -84,6 +103,3 @@ FILES_${PN}-dev += " \
     ${libdir}/snort_dynamicrules/*.so \
     ${prefix}/src/snort_dynamicsrc \
 "
-
-# http://errors.yoctoproject.org/Errors/Details/35137/
-PNBLACKLIST[snort] ?= "BROKEN: QA Issue: snort_preproc.pc, snort_output.pc, snort.pc"

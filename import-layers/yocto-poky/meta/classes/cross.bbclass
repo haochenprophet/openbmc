@@ -17,14 +17,21 @@ HOST_CC_ARCH = "${BUILD_CC_ARCH}"
 HOST_LD_ARCH = "${BUILD_LD_ARCH}"
 HOST_AS_ARCH = "${BUILD_AS_ARCH}"
 
-STAGING_DIR_HOST = "${STAGING_DIR}/${HOST_ARCH}${HOST_VENDOR}-${HOST_OS}"
+export lt_cv_sys_lib_dlsearch_path_spec = "${libdir} ${base_libdir} /lib /lib64 /usr/lib /usr/lib64"
+
+STAGING_DIR_HOST = "${RECIPE_SYSROOT_NATIVE}"
 
 PACKAGE_ARCH = "${BUILD_ARCH}"
 
-MULTIMACH_TARGET_SYS = "${PACKAGE_ARCH}${BUILD_VENDOR}-${BUILD_OS}"
+MULTIMACH_TARGET_SYS = "${BUILD_ARCH}${BUILD_VENDOR}-${BUILD_OS}"
 
 export PKG_CONFIG_DIR = "${exec_prefix}/lib/pkgconfig"
 export PKG_CONFIG_SYSROOT_DIR = ""
+
+TARGET_CPPFLAGS = ""
+TARGET_CFLAGS = ""
+TARGET_CXXFLAGS = ""
+TARGET_LDFLAGS = ""
 
 CPPFLAGS = "${BUILD_CPPFLAGS}"
 CFLAGS = "${BUILD_CFLAGS}"
@@ -34,12 +41,14 @@ LDFLAGS_build-darwin = "-L${STAGING_LIBDIR_NATIVE}"
 
 TOOLCHAIN_OPTIONS = ""
 
-DEPENDS_GETTEXT = "gettext-native"
+# This class encodes staging paths into its scripts data so can only be
+# reused if we manipulate the paths.
+SSTATE_SCAN_CMD ?= "${SSTATE_SCAN_CMD_NATIVE}"
 
 # Path mangling needed by the cross packaging
 # Note that we use := here to ensure that libdir and includedir are
 # target paths.
-target_base_prefix := "${base_prefix}"
+target_base_prefix := "${root_prefix}"
 target_prefix := "${prefix}"
 target_exec_prefix := "${exec_prefix}"
 target_base_libdir = "${target_base_prefix}/${baselib}"
@@ -68,4 +77,21 @@ do_install () {
 
 USE_NLS = "no"
 
+export CC = "${BUILD_CC}"
+export CXX = "${BUILD_CXX}"
+export FC = "${BUILD_FC}"
+export CPP = "${BUILD_CPP}"
+export LD = "${BUILD_LD}"
+export CCLD = "${BUILD_CCLD}"
+export AR = "${BUILD_AR}"
+export AS = "${BUILD_AS}"
+export RANLIB = "${BUILD_RANLIB}"
+export STRIP = "${BUILD_STRIP}"
+export NM = "${BUILD_NM}"
+
 inherit nopackages
+
+python do_addto_recipe_sysroot () {
+    bb.build.exec_func("extend_recipe_sysroot", d)
+}
+addtask addto_recipe_sysroot after do_populate_sysroot

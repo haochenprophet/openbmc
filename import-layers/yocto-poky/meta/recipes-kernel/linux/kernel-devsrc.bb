@@ -6,7 +6,6 @@ development or external module builds"
 SECTION = "kernel"
 
 LICENSE = "GPLv2"
-LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/GPL-2.0;md5=801f80980d171dd6425610833a22dbe6"
 
 inherit linux-kernel-base
 
@@ -28,9 +27,6 @@ do_configure[noexec] = "1"
 do_compile[noexec] = "1"
 do_populate_sysroot[noexec] = "1"
 
-# Define where the kernel headers are installed on the target as well as where
-# they are staged.
-KERNEL_SRC_PATH = "/usr/src/kernel"
 S = "${STAGING_KERNEL_DIR}"
 B = "${STAGING_KERNEL_BUILDDIR}"
 
@@ -50,13 +46,20 @@ do_install() {
         cd ${B}
         find . -type d -name '.git*' -prune -o -path '.debug' -prune -o -type f -print0 | cpio --null -pdlu $kerneldir
         cd ${S}
-        find . -type d -name '.git*' -prune -o -type f -print0 | cpio --null -pdlu $kerneldir
+	find . -type d -name '.git*' -prune -o -type d -name '.kernel-meta' -prune -o -type f -print0 | cpio --null -pdlu $kerneldir
 
         # Explicitly set KBUILD_OUTPUT to ensure that the image directory is cleaned and not
         # The main build artifacts. We clean the directory to avoid QA errors on mismatched
         # architecture (since scripts and helpers are native format).
         KBUILD_OUTPUT="$kerneldir"
         oe_runmake -C $kerneldir CC="${KERNEL_CC}" LD="${KERNEL_LD}" clean _mrproper_scripts
+        # make clean generates an absolute path symlink called "source"
+        # in $kerneldir points to $kerneldir, which doesn't make any
+        # sense, so remove it.
+        if [ -L $kerneldir/source ]; then
+            bbnote "Removing $kerneldir/source symlink"
+            rm -f $kerneldir/source
+        fi
 
         # As of Linux kernel version 3.0.1, the clean target removes
         # arch/powerpc/lib/crtsavres.o which is present in
@@ -65,6 +68,13 @@ do_install() {
                 mkdir -p $kerneldir/arch/powerpc/lib/
                 cp ${B}/arch/powerpc/lib/crtsavres.o $kerneldir/arch/powerpc/lib/crtsavres.o
         fi
+
+        # Remove fixdep/objtool as they won't be target binaries
+        for i in fixdep objtool; do
+                if [ -e $kerneldir/tools/objtool/$i ]; then
+                        rm -rf $kerneldir/tools/objtool/$i
+                fi
+        done
 
         chown -R root:root ${D}
 }

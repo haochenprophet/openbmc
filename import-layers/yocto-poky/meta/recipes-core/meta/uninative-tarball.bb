@@ -1,20 +1,28 @@
 SUMMARY = "libc and patchelf tarball for use with uninative.bbclass"
 LICENSE = "MIT"
-LIC_FILES_CHKSUM = "file://${COREBASE}/LICENSE;md5=4d92cd373abda3937c2bc47fbc49d690 \
-                    file://${COREBASE}/meta/COPYING.MIT;md5=3da9cfbcb788c80a0384361b4de20420"
 
 TOOLCHAIN_TARGET_TASK = ""
 
 # ibm850 - mcopy from mtools
 # iso8859-1 - guile
+# utf-16, cp1252 - binutils-windres
 TOOLCHAIN_HOST_TASK = "\
     nativesdk-glibc \
     nativesdk-glibc-gconv-ibm850 \
     nativesdk-glibc-gconv-iso8859-1 \
+    nativesdk-glibc-gconv-utf-16 \
+    nativesdk-glibc-gconv-cp1252 \
     nativesdk-patchelf \
+    nativesdk-libxcrypt \
     "
 
 INHIBIT_DEFAULT_DEPS = "1"
+
+MULTIMACH_TARGET_SYS = "${SDK_ARCH}-nativesdk${SDK_VENDOR}-${SDK_OS}"
+PACKAGE_ARCH = "${SDK_ARCH}_${SDK_OS}"
+PACKAGE_ARCHS = ""
+TARGET_ARCH = "none"
+TARGET_OS = "none"
 
 TOOLCHAIN_OUTPUTNAME ?= "${SDK_ARCH}-nativesdk-libc"
 
@@ -24,14 +32,17 @@ EXCLUDE_FROM_WORLD = "1"
 
 inherit meta
 inherit populate_sdk
+inherit nopackages
 
 deltask install
-deltask package
-deltask packagedata
+deltask populate_sysroot
+
+do_populate_sdk[stamp-extra-info] = "${PACKAGE_ARCH}"
 
 SDK_DEPENDS += "patchelf-native"
 
 SDK_PACKAGING_FUNC = ""
+REAL_MULTIMACH_TARGET_SYS = "none"
 
 fakeroot create_sdk_files() {
 	cp ${COREBASE}/scripts/relocate_sdk.py ${SDK_OUTPUT}/${SDKPATH}/
@@ -44,13 +55,12 @@ fakeroot create_sdk_files() {
 
 
 fakeroot tar_sdk() {
-	mkdir -p ${SDK_DEPLOY}
 	cd ${SDK_OUTPUT}/${SDKPATH}
 
 	DEST="./${SDK_ARCH}-${SDK_OS}"
 	mv sysroots/${SDK_SYS} $DEST
 	rm sysroots -rf
-	patchelf --set-interpreter ${@''.join('a' for n in xrange(1024))} $DEST/usr/bin/patchelf
+	patchelf --set-interpreter ${@''.join('a' for n in range(1024))} $DEST/usr/bin/patchelf
 	mv $DEST/usr/bin/patchelf $DEST/usr/bin/patchelf-uninative
-	tar ${SDKTAROPTS} -c -j --file=${SDK_DEPLOY}/${TOOLCHAIN_OUTPUTNAME}.tar.bz2 .
+	tar ${SDKTAROPTS} -c -j --file=${SDKDEPLOYDIR}/${TOOLCHAIN_OUTPUTNAME}.tar.bz2 .
 }

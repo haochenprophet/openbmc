@@ -1,9 +1,0 @@
-[Unit]
-Description=Phosphor OpenBMC sensor management daemon
-
-[Service]
-Restart=always
-ExecStart=/usr/sbin/obmc-phosphor-sensord
-
-[Install]
-WantedBy=multi-user.target

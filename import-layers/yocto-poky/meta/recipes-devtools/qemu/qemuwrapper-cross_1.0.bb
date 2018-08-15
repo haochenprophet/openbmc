@@ -1,10 +1,14 @@
 SUMMARY = "QEMU wrapper script"
+HOMEPAGE = "http://qemu.org"
 LICENSE = "MIT"
-LIC_FILES_CHKSUM = "file://${COREBASE}/meta/COPYING.MIT;md5=3da9cfbcb788c80a0384361b4de20420"
 
 S = "${WORKDIR}"
 
+DEPENDS += "qemu-native"
+
 inherit qemu
+
+do_populate_sysroot[depends] = ""
 
 do_install () {
 	install -d ${D}${bindir_crossscripts}/
@@ -41,10 +45,6 @@ EOF
 	chmod +x ${D}${bindir_crossscripts}/qemuwrapper
 }
 
-SYSROOT_PREPROCESS_FUNCS += "qemuwrapper_sysroot_preprocess"
-
-qemuwrapper_sysroot_preprocess () {
-	sysroot_stage_dir ${D}${bindir_crossscripts} ${SYSROOT_DESTDIR}${bindir_crossscripts}
-}
+SYSROOT_DIRS += "${bindir_crossscripts}"
 
 INHIBIT_DEFAULT_DEPS = "1"

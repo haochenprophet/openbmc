@@ -57,7 +57,7 @@ class BBLogFormatter(logging.Formatter):
     }
 
     color_enabled = False
-    BASECOLOR, BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(29,38)
+    BASECOLOR, BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = list(range(29,38))
 
     COLORS = {
         DEBUG3  : CYAN,
@@ -90,8 +90,9 @@ class BBLogFormatter(logging.Formatter):
             if self.color_enabled:
                 record = self.colorize(record)
             msg = logging.Formatter.format(self, record)
-
-        if hasattr(record, 'bb_exc_info'):
+        if hasattr(record, 'bb_exc_formatted'):
+            msg += '\n' + ''.join(record.bb_exc_formatted)
+        elif hasattr(record, 'bb_exc_info'):
             etype, value, tb = record.bb_exc_info
             formatted = bb.exceptions.format_exception(etype, value, tb, limit=5)
             msg += '\n' + ''.join(formatted)
@@ -181,8 +182,11 @@ def constructLogOptions():
         debug_domains["BitBake.%s" % domainarg] = logging.DEBUG - dlevel + 1
     return level, debug_domains
 
-def addDefaultlogFilter(handler, cls = BBLogFilter):
+def addDefaultlogFilter(handler, cls = BBLogFilter, forcelevel=None):
     level, debug_domains = constructLogOptions()
+
+    if forcelevel is not None:
+        level = forcelevel
 
     cls(handler, level, debug_domains)
 
@@ -197,3 +201,25 @@ def fatal(msgdomain, msg):
         logger = logging.getLogger("BitBake")
     logger.critical(msg)
     sys.exit(1)
+
+def logger_create(name, output=sys.stderr, level=logging.INFO, preserve_handlers=False, color='auto'):
+    """Standalone logger creation function"""
+    logger = logging.getLogger(name)
+    console = logging.StreamHandler(output)
+    format = bb.msg.BBLogFormatter("%(levelname)s: %(message)s")
+    if color == 'always' or (color == 'auto' and output.isatty()):
+        format.enable_color()
+    console.setFormatter(format)
+    if preserve_handlers:
+        logger.addHandler(console)
+    else:
+        logger.handlers = [console]
+    logger.setLevel(level)
+    return logger
+
+def has_console_handler(logger):
+    for handler in logger.handlers:
+        if isinstance(handler, logging.StreamHandler):
+            if handler.stream in [sys.stderr, sys.stdout]:
+                return True
+    return False

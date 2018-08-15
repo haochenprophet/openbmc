@@ -3,34 +3,55 @@ require openvswitch.inc
 DEPENDS += "virtual/kernel"
 
 RDEPENDS_${PN}-ptest += "\
-	python-logging python-syslog python-argparse python-io \
-	python-fcntl python-shell python-lang python-xml python-math \
-	python-datetime python-netclient python sed \
+	python3-logging python3-syslog python3-io \
+	python3-fcntl python3-shell python3-xml python3-math \
+	python3-datetime python3-netclient python3 sed \
 	ldd perl-module-socket perl-module-carp perl-module-exporter \
-	perl-module-xsloader python-netserver python-threading \
-	python-resource python-subprocess \
+	perl-module-xsloader python3-netserver python3-threading \
+	python3-resource findutils which \
 	"
 
 S = "${WORKDIR}/git"
-PV = "2.5.0+${SRCREV}"
+PV = "2.7.3+${SRCREV}"
 
 FILESEXTRAPATHS_append := "${THISDIR}/${PN}-git:"
 
-SRCREV = "8c0b419a0b9ac0141d6973dcc80306dfc6a83d31"
-SRC_URI += "\
-	git://github.com/openvswitch/ovs.git;protocol=git;branch=branch-2.5 \
-	file://openvswitch-add-more-target-python-substitutions.patch \
-	file://openvswitch-add-ptest-${SRCREV}.patch \
-	file://run-ptest \
-	file://disable_m4_check.patch \
-	file://kernel_module.patch \
-	file://openvswitch-ptest-Fix-python-path.patch \
-	"
+SRCREV = "b8dcfbebee9e7dbc74ec5eecc9b45d335d6150c1"
+SRC_URI = "file://openvswitch-switch \
+           file://openvswitch-switch-setup \
+           file://openvswitch-testcontroller \
+           file://openvswitch-testcontroller-setup \
+           git://github.com/openvswitch/ovs.git;protocol=git;branch=branch-2.7 \
+           file://openvswitch-add-ptest-${SRCREV}.patch \
+           file://run-ptest \
+           file://disable_m4_check.patch \
+           file://kernel_module.patch \
+           file://python-make-remaining-scripts-use-usr-bin-env.patch \
+           file://0001-use-the-linux-if_packet.h-Interface-directly.patch \
+           file://0002-Define-WAIT_ANY-if-not-provided-by-system.patch \
+           file://python-switch-remaining-scripts-to-use-python3.patch \
+           "
 
-LIC_FILES_CHKSUM = "file://COPYING;md5=247d8817aece26b21a8cd6791b3ea994"
+# Temporarily backport patches to better support py3. These have been
+# merged upstream but are not part of v2.7.1.
+SRC_URI += " \
+           file://0001-Python3-compatibility-Convert-print-statements.patch \
+           file://0002-Python3-compatibility-exception-cleanup.patch \
+           file://0003-Python3-compatibility-execfile-to-exec.patch \
+           file://0004-Python3-compatibility-iteritems-to-items.patch \
+           file://0005-Python3-compatibility-fix-integer-problems.patch \
+           file://0006-Python3-compatibility-math-error-compatibility.patch \
+           file://0007-Python3-compatibility-unicode-to-str.patch \
+           file://0008-AUTHORS-Add-Jason-Wessel.patch \
+"
 
-PACKAGECONFIG ?= ""
-PACKAGECONFIG[dpdk] = "--with-dpdk=${STAGING_DIR_TARGET}/opt/dpdk/${TARGET_ARCH}-native-linuxapp-gcc,,dpdk,"
+LIC_FILES_CHKSUM = "file://COPYING;md5=17b2c9d4c70853a09c0e143137754b35"
+
+DPDK_INSTALL_DIR ?= "/opt/dpdk"
+
+PACKAGECONFIG ?= "libcap-ng"
+PACKAGECONFIG[dpdk] = "--with-dpdk=${STAGING_DIR_TARGET}${DPDK_INSTALL_DIR}/share/${TARGET_ARCH}-native-linuxapp-gcc,,dpdk,dpdk"
+PACKAGECONFIG[libcap-ng] = "--enable-libcapng,--disable-libcapng,libcap-ng,"
 
 # Don't compile kernel modules by default since it heavily depends on
 # kernel version. Use the in-kernel module for now.
@@ -50,4 +71,5 @@ do_install_ptest() {
 
 do_install_append() {
 	oe_runmake modules_install INSTALL_MOD_PATH=${D}
+	rm -r ${D}/${localstatedir}/run
 }

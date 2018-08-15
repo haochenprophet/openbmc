@@ -13,6 +13,9 @@ DEPENDS = "libfribidi libtool libgcrypt libgcrypt-native \
    libmtp libopus orc libsamplerate0 libusb1 schroedinger taglib \
    tiff"
 
+# While this item does not require it, it depends on ffmpeg which does
+LICENSE_FLAGS = "commercial"
+
 SRC_URI = "http://download.videolan.org/pub/videolan/${BPN}/${PV}/${BP}.tar.xz"
 
 inherit autotools gettext pkgconfig distro_features_check
@@ -21,7 +24,7 @@ ARM_INSTRUCTION_SET = "arm"
 
 EXTRA_OECONF = "\
     --enable-run-as-root \
-    --enable-xvideo \ 
+    --enable-xvideo \
     --disable-screen --disable-caca \
     --enable-httpd --enable-vlm \
     --enable-freetype \
@@ -37,7 +40,7 @@ EXTRA_OECONF = "\
     ac_cv_path_UIC=${STAGING_BINDIR_NATIVE}/uic4 \
 "
 
-PACKAGECONFIG ?= " live555 dc1394 dv1394 notify fontconfig freetype dvdread png ${@bb.utils.contains('DISTRO_FEATURES', 'x11', 'x11 sdl', '', d)}"
+PACKAGECONFIG ?= " live555 dc1394 dv1394 notify fontconfig freetype dvdread png ${@bb.utils.contains('DISTRO_FEATURES', 'x11', 'x11 sdl vdpau', '', d)}"
 PACKAGECONFIG[mad] = "--enable-mad,--disable-mad,libmad"
 PACKAGECONFIG[sdl] = "--enable-sdl,--disable-sdl,virtual/libsdl libsdl-image "
 PACKAGECONFIG[a52] = "--enable-a52,--disable-a52,liba52"
@@ -54,7 +57,6 @@ PACKAGECONFIG[vpx] = "--enable-vpx,--disable-vpx, libvpx"
 PACKAGECONFIG[qt4] = "--enable-qt,--disable-qt, qt4-x11-free"
 PACKAGECONFIG[freerdp] = "--enable-freerdp,--disable-freerdp, freerdp"
 PACKAGECONFIG[dvbpsi] = "--enable-dvbpsi,--disable-dvbpsi, libdvbpsi"
-PACKAGECONFIG[gnome-vfs] = "--enable-gnomevfs,--disable-gnomevfs, gnome-vfs"
 PACKAGECONFIG[samba] = "--enable-smbclient,--disable-smbclient, samba"
 PACKAGECONFIG[upnp] = "--enable-upnp,--disable-upnp,libupnp"
 PACKAGECONFIG[dvdnav] = "--enable-dvdnav,--disable-dvdnav,libdvdnav libdvdcss"
@@ -72,6 +74,7 @@ PACKAGECONFIG[dvdread] = "--enable-dvdread,--disable-dvdread, libdvdread libdvdc
 PACKAGECONFIG[vnc] = "--enable-vnc,--disable-vnc, libvncserver"
 PACKAGECONFIG[x11] = "--with-x --enable-xcb,--without-x --disable-xcb,  xcb-util-keysyms libxpm libxinerama"
 PACKAGECONFIG[png] = "--enable-png,--disable-png,libpng"
+PACKAGECONFIG[vdpau] = "--enable-vdpau,--disable-vdpau,libvdpau"
 
 do_configure_prepend() {
     cp ${STAGING_DATADIR}/libtool/config.* ${S}/autotools/ || true
@@ -94,6 +97,7 @@ FILES_${PN} += "\
     ${datadir}/applications \
     ${datadir}/vlc/ \
     ${datadir}/icons \
+    ${lindir}/vlc/vlc/libvlc_vdpau.so \
 "
 
 FILES_${PN}-dbg += "\
@@ -104,3 +108,6 @@ FILES_${PN}-dbg += "\
 FILES_${PN}-staticdev += "\
     ${libdir}/vlc/plugins/*/*.a \
 "
+
+INSANE_SKIP_${PN} = "dev-so"
+

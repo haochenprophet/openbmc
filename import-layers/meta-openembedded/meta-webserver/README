@@ -13,14 +13,14 @@ This layer depends on:
 
 URI: git://github.com/openembedded/oe-core.git
 subdirectory: meta
-branch: krogoth 
+branch: master
 revision: HEAD
 
 For some recipes, the meta-oe layer is required:
 
 URI: git://github.com/openembedded/meta-oe.git
 subdirectory: meta-oe
-branch: krogoth 
+branch: master
 revision: HEAD
 
 
@@ -50,14 +50,12 @@ Notes
 
 Maintenance
 -----------
-Send pull requests to openembedded-devel@lists.openembedded.org with '[meta-systemd][krogoth]' in the subject'
 
-When sending single patches, please use something like:
-'git send-email -M -1 --to openembedded-devel@lists.openembedded.org --subject-prefix=meta-systemd][krogoth][PATCH'
+Send patches / pull requests to openembedded-devel@lists.openembedded.org
+with '[meta-webserver]' in the subject.
 
+Layer maintainer: Derek Straka <derek@asterius.io>
 
-krogoth Branch Maintainer:
-Armin Kuster <akuster808@gmail.com>
 
 License
 -------

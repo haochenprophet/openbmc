@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Copyright (c) 2012 Intel Corporation
 #
@@ -102,6 +102,8 @@ def change_interpreter(elf_file_name):
             if fname.startswith(b("/lib/")) or fname.startswith(b("/lib64/")) or \
                fname.startswith(b("/lib32/")) or fname.startswith(b("/usr/lib32/")) or \
                fname.startswith(b("/usr/lib32/")) or fname.startswith(b("/usr/lib64/")):
+                break
+            if p_filesz == 0:
                 break
             if (len(new_dl_path) >= p_filesz):
                 print("ERROR: could not relocate %s, interp size = %i and %i is needed." \

@@ -63,7 +63,7 @@ class Cvs(FetchMethod):
         if 'fullpath' in ud.parm:
             fullpath = '_fullpath'
 
-        ud.localfile = bb.data.expand('%s_%s_%s_%s%s%s.tar.gz' % (ud.module.replace('/', '.'), ud.host, ud.tag, ud.date, norecurse, fullpath), d)
+        ud.localfile = d.expand('%s_%s_%s_%s%s%s.tar.gz' % (ud.module.replace('/', '.'), ud.host, ud.tag, ud.date, norecurse, fullpath))
 
     def need_update(self, ud, d):
         if (ud.date == "now"):
@@ -87,10 +87,10 @@ class Cvs(FetchMethod):
             cvsroot = ud.path
         else:
             cvsroot = ":" + method
-            cvsproxyhost = d.getVar('CVS_PROXY_HOST', True)
+            cvsproxyhost = d.getVar('CVS_PROXY_HOST')
             if cvsproxyhost:
                 cvsroot += ";proxy=" + cvsproxyhost
-            cvsproxyport = d.getVar('CVS_PROXY_PORT', True)
+            cvsproxyport = d.getVar('CVS_PROXY_PORT')
             if cvsproxyport:
                 cvsroot += ";proxyport=" + cvsproxyport
             cvsroot += ":" + ud.user
@@ -110,7 +110,7 @@ class Cvs(FetchMethod):
         if ud.tag:
             options.append("-r %s" % ud.tag)
 
-        cvsbasecmd = d.getVar("FETCHCMD_cvs", True)
+        cvsbasecmd = d.getVar("FETCHCMD_cvs")
         cvscmd = cvsbasecmd + " '-d" + cvsroot + "' co " + " ".join(options) + " " + ud.module
         cvsupdatecmd = cvsbasecmd + " '-d" + cvsroot + "' update -d -P " + " ".join(options)
 
@@ -120,25 +120,26 @@ class Cvs(FetchMethod):
 
         # create module directory
         logger.debug(2, "Fetch: checking for module directory")
-        pkg = d.getVar('PN', True)
-        pkgdir = os.path.join(d.getVar('CVSDIR', True), pkg)
+        pkg = d.getVar('PN')
+        pkgdir = os.path.join(d.getVar('CVSDIR'), pkg)
         moddir = os.path.join(pkgdir, localdir)
+        workdir = None
         if os.access(os.path.join(moddir, 'CVS'), os.R_OK):
             logger.info("Update " + ud.url)
             bb.fetch2.check_network_access(d, cvsupdatecmd, ud.url)
             # update sources there
-            os.chdir(moddir)
+            workdir = moddir
             cmd = cvsupdatecmd
         else:
             logger.info("Fetch " + ud.url)
             # check out sources there
             bb.utils.mkdirhier(pkgdir)
-            os.chdir(pkgdir)
+            workdir = pkgdir
             logger.debug(1, "Running %s", cvscmd)
             bb.fetch2.check_network_access(d, cvscmd, ud.url)
             cmd = cvscmd
 
-        runfetchcmd(cmd, d, cleanup = [moddir])
+        runfetchcmd(cmd, d, cleanup=[moddir], workdir=workdir)
 
         if not os.access(moddir, os.R_OK):
             raise FetchError("Directory %s was not readable despite sucessful fetch?!" % moddir, ud.url)
@@ -147,24 +148,24 @@ class Cvs(FetchMethod):
         if scmdata == "keep":
             tar_flags = ""
         else:
-            tar_flags = "--exclude 'CVS'"
+            tar_flags = "--exclude='CVS'"
 
         # tar them up to a defined filename
+        workdir = None
         if 'fullpath' in ud.parm:
-            os.chdir(pkgdir)
+            workdir = pkgdir
             cmd = "tar %s -czf %s %s" % (tar_flags, ud.localpath, localdir)
         else:
-            os.chdir(moddir)
-            os.chdir('..')
+            workdir = os.path.dirname(os.path.realpath(moddir))
             cmd = "tar %s -czf %s %s" % (tar_flags, ud.localpath, os.path.basename(moddir))
 
-        runfetchcmd(cmd, d, cleanup = [ud.localpath])
+        runfetchcmd(cmd, d, cleanup=[ud.localpath], workdir=workdir)
 
     def clean(self, ud, d):
         """ Clean CVS Files and tarballs """
 
-        pkg = d.getVar('PN', True)
-        pkgdir = os.path.join(d.getVar("CVSDIR", True), pkg)
+        pkg = d.getVar('PN')
+        pkgdir = os.path.join(d.getVar("CVSDIR"), pkg)
 
         bb.utils.remove(pkgdir, True)
         bb.utils.remove(ud.localpath)

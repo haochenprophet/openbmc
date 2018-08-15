@@ -4,11 +4,15 @@ import stat
 import shutil
 
 def _smart_copy(src, dest):
+    import subprocess
     # smart_copy will choose the correct function depending on whether the
     # source is a file or a directory.
     mode = os.stat(src).st_mode
     if stat.S_ISDIR(mode):
-        shutil.copytree(src, dest, symlinks=True, ignore=shutil.ignore_patterns('.git'))
+        bb.utils.mkdirhier(dest)
+        cmd = "tar --exclude='.git' --xattrs --xattrs-include='*' -chf - -C %s -p . \
+        | tar --xattrs --xattrs-include='*' -xf - -C %s" % (src, dest)
+        subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
     else:
         shutil.copyfile(src, dest)
         shutil.copymode(src, dest)
@@ -17,8 +21,8 @@ class BuildSystem(object):
     def __init__(self, context, d):
         self.d = d
         self.context = context
-        self.layerdirs = d.getVar('BBLAYERS', True).split()
-        self.layers_exclude = (d.getVar('SDK_LAYERS_EXCLUDE', True) or "").split()
+        self.layerdirs = [os.path.abspath(pth) for pth in d.getVar('BBLAYERS').split()]
+        self.layers_exclude = (d.getVar('SDK_LAYERS_EXCLUDE') or "").split()
 
     def copy_bitbake_and_layers(self, destdir, workspace_name=None):
         # Copy in all metadata layers + bitbake (as repositories)
@@ -26,8 +30,12 @@ class BuildSystem(object):
         bb.utils.mkdirhier(destdir)
         layers = list(self.layerdirs)
 
-        corebase = self.d.getVar('COREBASE', True)
+        corebase = os.path.abspath(self.d.getVar('COREBASE'))
         layers.append(corebase)
+        # The bitbake build system uses the meta-skeleton layer as a layout
+        # for common recipies, e.g: the recipetool script to create kernel recipies
+        # Add the meta-skeleton layer to be included as part of the eSDK installation
+        layers.append(os.path.join(corebase, 'meta-skeleton'))
 
         # Exclude layers
         for layer_exclude in self.layers_exclude:
@@ -42,7 +50,7 @@ class BuildSystem(object):
                 extranum += 1
                 workspace_newname = '%s-%d' % (workspace_name, extranum)
 
-        corebase_files = self.d.getVar('COREBASE_FILES', True).split()
+        corebase_files = self.d.getVar('COREBASE_FILES').split()
         corebase_files = [corebase + '/' +x for x in corebase_files]
         # Make sure bitbake goes in
         bitbake_dir = bb.__file__.rsplit('/', 3)[0]
@@ -67,6 +75,11 @@ class BuildSystem(object):
             layerdestpath = destdir
             if corebase == os.path.dirname(layer):
                 layerdestpath += '/' + os.path.basename(corebase)
+            else:
+                layer_relative = os.path.basename(corebase) + '/' + os.path.relpath(layer, corebase)
+                if os.path.dirname(layer_relative) != layernewname:
+                    layerdestpath += '/' + os.path.dirname(layer_relative)
+
             layerdestpath += '/' + layernewname
 
             layer_relative = os.path.relpath(layerdestpath,
@@ -82,7 +95,7 @@ class BuildSystem(object):
                     destname = os.path.join(layerdestpath, f_basename)
                     _smart_copy(f, destname)
             else:
-                if os.path.exists(layerdestpath):
+                if os.path.exists(os.path.join(layerdestpath, 'conf/layer.conf')):
                     bb.note("Skipping layer %s, already handled" % layer)
                 else:
                     _smart_copy(layer, layerdestpath)
@@ -96,7 +109,7 @@ class BuildSystem(object):
                 # Drop all bbappends except the one for the image the SDK is being built for
                 # (because of externalsrc, the workspace bbappends will interfere with the
                 # locked signatures if present, and we don't need them anyway)
-                image_bbappend = os.path.splitext(os.path.basename(self.d.getVar('FILE', True)))[0] + '.bbappend'
+                image_bbappend = os.path.splitext(os.path.basename(self.d.getVar('FILE')))[0] + '.bbappend'
                 appenddir = os.path.join(layerdestpath, 'appends')
                 if os.path.isdir(appenddir):
                     for fn in os.listdir(appenddir):
@@ -119,12 +132,20 @@ class BuildSystem(object):
                         line = line.replace('workspacelayer', workspace_newname)
                         f.write(line)
 
+        # meta-skeleton layer is added as part of the build system
+        # but not as a layer included in the build, therefore it is
+        # not reported to the function caller.
+        for layer in layers_copied:
+            if layer.endswith('/meta-skeleton'):
+                layers_copied.remove(layer)
+                break
+
         return layers_copied
 
 def generate_locked_sigs(sigfile, d):
     bb.utils.mkdirhier(os.path.dirname(sigfile))
     depd = d.getVar('BB_TASKDEPDATA', False)
-    tasks = ['%s.%s' % (v[2], v[1]) for v in depd.itervalues()]
+    tasks = ['%s.%s' % (v[2], v[1]) for v in depd.values()]
     bb.parse.siggen.dump_lockedsigs(sigfile, tasks)
 
 def prune_lockedsigs(excluded_tasks, excluded_targets, lockedsigs, pruned_output):
@@ -145,7 +166,7 @@ def prune_lockedsigs(excluded_tasks, excluded_targets, lockedsigs, pruned_output
                     invalue = True
                     f.write(line)
 
-def merge_lockedsigs(copy_tasks, lockedsigs_main, lockedsigs_extra, merged_output, copy_output):
+def merge_lockedsigs(copy_tasks, lockedsigs_main, lockedsigs_extra, merged_output, copy_output=None):
     merged = {}
     arch_order = []
     with open(lockedsigs_main, 'r') as f:
@@ -195,23 +216,47 @@ def merge_lockedsigs(copy_tasks, lockedsigs_main, lockedsigs_extra, merged_outpu
                     fulltypes.append(typename)
             f.write('SIGGEN_LOCKEDSIGS_TYPES = "%s"\n' % ' '.join(fulltypes))
 
-    write_sigs_file(copy_output, tocopy.keys(), tocopy)
+    if copy_output:
+        write_sigs_file(copy_output, list(tocopy.keys()), tocopy)
     if merged_output:
         write_sigs_file(merged_output, arch_order, merged)
 
-def create_locked_sstate_cache(lockedsigs, input_sstate_cache, output_sstate_cache, d, fixedlsbstring=""):
+def create_locked_sstate_cache(lockedsigs, input_sstate_cache, output_sstate_cache, d, fixedlsbstring="", filterfile=None):
+    import shutil
     bb.note('Generating sstate-cache...')
 
-    nativelsbstring = d.getVar('NATIVELSBSTRING', True)
-    bb.process.run("gen-lockedsig-cache %s %s %s %s" % (lockedsigs, input_sstate_cache, output_sstate_cache, nativelsbstring))
-    if fixedlsbstring:
+    nativelsbstring = d.getVar('NATIVELSBSTRING')
+    bb.process.run("gen-lockedsig-cache %s %s %s %s %s" % (lockedsigs, input_sstate_cache, output_sstate_cache, nativelsbstring, filterfile or ''))
+    if fixedlsbstring and nativelsbstring != fixedlsbstring:
         nativedir = output_sstate_cache + '/' + nativelsbstring
         if os.path.isdir(nativedir):
             destdir = os.path.join(output_sstate_cache, fixedlsbstring)
-            bb.utils.mkdirhier(destdir)
+            for root, _, files in os.walk(nativedir):
+                for fn in files:
+                    src = os.path.join(root, fn)
+                    dest = os.path.join(destdir, os.path.relpath(src, nativedir))
+                    if os.path.exists(dest):
+                        # Already exists, and it'll be the same file, so just delete it
+                        os.unlink(src)
+                    else:
+                        bb.utils.mkdirhier(os.path.dirname(dest))
+                        shutil.move(src, dest)
 
-            dirlist = os.listdir(nativedir)
-            for i in dirlist:
-                src = os.path.join(nativedir, i)
-                dest = os.path.join(destdir, i)
-                os.rename(src, dest)
+def check_sstate_task_list(d, targets, filteroutfile, cmdprefix='', cwd=None, logfile=None):
+    import subprocess
+
+    bb.note('Generating sstate task list...')
+
+    if not cwd:
+        cwd = os.getcwd()
+    if logfile:
+        logparam = '-l %s' % logfile
+    else:
+        logparam = ''
+    cmd = "%sBB_SETSCENE_ENFORCE=1 PSEUDO_DISABLED=1 oe-check-sstate %s -s -o %s %s" % (cmdprefix, targets, filteroutfile, logparam)
+    env = dict(d.getVar('BB_ORIGENV', False))
+    env.pop('BUILDDIR', '')
+    env.pop('BBPATH', '')
+    pathitems = env['PATH'].split(':')
+    env['PATH'] = ':'.join([item for item in pathitems if not item.endswith('/bitbake/bin')])
+    bb.process.run(cmd, stderr=subprocess.STDOUT, env=env, cwd=cwd, executable='/bin/bash')

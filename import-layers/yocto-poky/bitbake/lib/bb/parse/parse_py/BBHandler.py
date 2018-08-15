@@ -25,7 +25,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-from __future__ import absolute_import
+
 import re, bb, os
 import logging
 import bb.build, bb.utils
@@ -66,7 +66,7 @@ def inherit(files, fn, lineno, d):
             file = os.path.join('classes', '%s.bbclass' % file)
 
         if not os.path.isabs(file):
-            bbpath = d.getVar("BBPATH", True)
+            bbpath = d.getVar("BBPATH")
             abs_fn, attempts = bb.utils.which(bbpath, file, history=True)
             for af in attempts:
                 if af != abs_fn:
@@ -87,17 +87,17 @@ def get_statements(filename, absolute_filename, base_name):
     try:
         return cached_statements[absolute_filename]
     except KeyError:
-        file = open(absolute_filename, 'r')
-        statements = ast.StatementGroup()
+        with open(absolute_filename, 'r') as f:
+            statements = ast.StatementGroup()
 
-        lineno = 0
-        while True:
-            lineno = lineno + 1
-            s = file.readline()
-            if not s: break
-            s = s.rstrip()
-            feeder(lineno, s, filename, base_name, statements)
-        file.close()
+            lineno = 0
+            while True:
+                lineno = lineno + 1
+                s = f.readline()
+                if not s: break
+                s = s.rstrip()
+                feeder(lineno, s, filename, base_name, statements)
+
         if __inpython__:
             # add a blank line to close out any python definition
             feeder(lineno, "", filename, base_name, statements, eof=True)
@@ -131,9 +131,6 @@ def handle(fn, d, include):
 
     abs_fn = resolve_file(fn, d)
 
-    if include:
-        bb.parse.mark_dependency(d, abs_fn)
-
     # actual loading
     statements = get_statements(fn, abs_fn, base_name)
 
@@ -144,7 +141,7 @@ def handle(fn, d, include):
     try:
         statements.eval(d)
     except bb.parse.SkipRecipe:
-        bb.data.setVar("__SKIPPED", True, d)
+        d.setVar("__SKIPPED", True)
         if include == 0:
             return { "" : d }
 

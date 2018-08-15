@@ -1,11 +1,12 @@
 DESCRIPTION = "A XFCE minimal demo image."
 
 IMAGE_INSTALL = "packagegroup-core-boot \
-    ${ROOTFS_PKGMANAGE_BOOTSTRAP} \
     packagegroup-core-x11 \
     packagegroup-xfce-base \
+    kernel-modules \
 "
 
+inherit distro_features_check
 REQUIRED_DISTRO_FEATURES = "x11"
 
 IMAGE_LINGUAS ?= " "

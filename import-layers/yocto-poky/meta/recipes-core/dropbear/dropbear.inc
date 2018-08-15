@@ -8,7 +8,7 @@ LICENSE = "MIT & BSD-3-Clause & BSD-2-Clause & PD"
 LIC_FILES_CHKSUM = "file://LICENSE;md5=a5ec40cafba26fc4396d0b550f824e01"
 
 DEPENDS = "zlib"
-RPROVIDES_${PN} = "ssh sshd" 
+RPROVIDES_${PN} = "ssh sshd"
 
 DEPENDS += "${@bb.utils.contains('DISTRO_FEATURES', 'pam', 'libpam', '', d)}"
 
@@ -17,6 +17,7 @@ SRC_URI = "http://matt.ucc.asn.au/dropbear/releases/dropbear-${PV}.tar.bz2 \
            file://0003-configure.patch \
            file://0004-fix-2kb-keys.patch \
            file://0007-dropbear-fix-for-x32-abi.patch \
+           file://fix-libtomcrypt-libtommath-ordering.patch \
            file://init \
            file://dropbearkey.service \
            file://dropbear@.service \
@@ -44,9 +45,12 @@ SYSTEMD_SERVICE_${PN} = "dropbear.socket"
 SBINCOMMANDS = "dropbear dropbearkey dropbearconvert"
 BINCOMMANDS = "dbclient ssh scp"
 EXTRA_OEMAKE = 'MULTI=1 SCPPROGRESS=1 PROGRAMS="${SBINCOMMANDS} ${BINCOMMANDS}"'
+
+PACKAGECONFIG ?= ""
+PACKAGECONFIG[system-libtom] = "--disable-bundled-libtom,--enable-bundled-libtom,libtommath libtomcrypt"
+
 EXTRA_OECONF += "\
  ${@bb.utils.contains('DISTRO_FEATURES', 'pam', '--enable-pam', '--disable-pam', d)}"
-CFLAGS += "-DSFTPSERVER_PATH=\\"${libdir}/openssh/sftp-server\\""
 
 do_install() {
 	install -d ${D}${sysconfdir} \
@@ -59,7 +63,7 @@ do_install() {
 
 	install -m 0755 dropbearmulti ${D}${sbindir}/
 	ln -s ${sbindir}/dropbearmulti ${D}${bindir}/dbclient
-	
+
 	for i in ${SBINCOMMANDS}
 	do
 		ln -s ./dropbearmulti ${D}${sbindir}/$i
@@ -70,7 +74,7 @@ do_install() {
 		-e 's,/usr/bin,${bindir},g' \
 		-e 's,/usr,${prefix},g' ${WORKDIR}/init > ${D}${sysconfdir}/init.d/dropbear
 	chmod 755 ${D}${sysconfdir}/init.d/dropbear
-	if [ "${@bb.utils.contains('DISTRO_FEATURES', 'pam', 'pam', '', d)}" = "pam" ]; then
+	if [ "${@bb.utils.filter('DISTRO_FEATURES', 'pam', d)}" ]; then
 		install -d ${D}${sysconfdir}/pam.d
 		install -m 0644 ${WORKDIR}/dropbear  ${D}${sysconfdir}/pam.d/
 	fi

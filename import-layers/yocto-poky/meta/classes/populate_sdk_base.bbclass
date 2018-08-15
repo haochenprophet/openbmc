@@ -11,14 +11,20 @@ COMPLEMENTARY_GLOB[ptest-pkgs] = '*-ptest'
 def complementary_globs(featurevar, d):
     all_globs = d.getVarFlags('COMPLEMENTARY_GLOB')
     globs = []
-    features = set((d.getVar(featurevar, True) or '').split())
+    features = set((d.getVar(featurevar) or '').split())
     for name, glob in all_globs.items():
         if name in features:
             globs.append(glob)
     return ' '.join(globs)
 
-SDKIMAGE_FEATURES ??= "dev-pkgs dbg-pkgs"
+SDKIMAGE_FEATURES ??= "dev-pkgs dbg-pkgs ${@bb.utils.contains('DISTRO_FEATURES', 'api-documentation', 'doc-pkgs', '', d)}"
 SDKIMAGE_INSTALL_COMPLEMENTARY = '${@complementary_globs("SDKIMAGE_FEATURES", d)}'
+
+PACKAGE_ARCHS_append_task-populate-sdk = " sdk-provides-dummy-target"
+SDK_PACKAGE_ARCHS += "sdk-provides-dummy-${SDKPKGSUFFIX}"
+
+# List of locales to install, or "all" for all of them, or unset for none.
+SDKIMAGE_LINGUAS ?= "all"
 
 inherit rootfs_${IMAGE_PKGTYPE}
 
@@ -26,21 +32,22 @@ SDK_DIR = "${WORKDIR}/sdk"
 SDK_OUTPUT = "${SDK_DIR}/image"
 SDK_DEPLOY = "${DEPLOY_DIR}/sdk"
 
+SDKDEPLOYDIR = "${WORKDIR}/${SDKMACHINE}-deploy-${PN}-populate-sdk"
+
 B_task-populate-sdk = "${SDK_DIR}"
 
 SDKTARGETSYSROOT = "${SDKPATH}/sysroots/${REAL_MULTIMACH_TARGET_SYS}"
 
 TOOLCHAIN_HOST_TASK ?= "nativesdk-packagegroup-sdk-host packagegroup-cross-canadian-${MACHINE}"
 TOOLCHAIN_HOST_TASK_ATTEMPTONLY ?= ""
-TOOLCHAIN_TARGET_TASK ?= " \
-    ${@multilib_pkg_extend(d, 'packagegroup-core-standalone-sdk-target')} \
-    ${@multilib_pkg_extend(d, 'packagegroup-core-standalone-sdk-target-dbg')} \
-    "
+TOOLCHAIN_TARGET_TASK ?= "${@multilib_pkg_extend(d, 'packagegroup-core-standalone-sdk-target')} \
+                          ${@multilib_pkg_extend(d, 'target-sdk-provides-dummy')}"
 TOOLCHAIN_TARGET_TASK_ATTEMPTONLY ?= ""
 TOOLCHAIN_OUTPUTNAME ?= "${SDK_NAME}-toolchain-${SDK_VERSION}"
 
 SDK_RDEPENDS = "${TOOLCHAIN_TARGET_TASK} ${TOOLCHAIN_HOST_TASK}"
-SDK_DEPENDS = "virtual/fakeroot-native pixz-native"
+SDK_DEPENDS = "virtual/fakeroot-native xz-native cross-localedef-native ${MLPREFIX}qemuwrapper-cross"
+SDK_DEPENDS_append_libc-glibc = " nativesdk-glibc-locale"
 
 # We want the MULTIARCH_TARGET_SYS to point to the TUNE_PKGARCH, not PACKAGE_ARCH as it
 # could be set to the MACHINE_ARCH
@@ -55,48 +62,74 @@ SDK_PRE_INSTALL_COMMAND ?= ""
 SDK_POST_INSTALL_COMMAND ?= ""
 SDK_RELOCATE_AFTER_INSTALL ?= "1"
 
-SDKEXTPATH ?= "~/${@d.getVar('DISTRO', True)}_sdk"
-SDK_TITLE ?= "${@d.getVar('DISTRO_NAME', True) or d.getVar('DISTRO', True)} SDK"
+SDKEXTPATH ?= "~/${@d.getVar('DISTRO')}_sdk"
+SDK_TITLE ?= "${@d.getVar('DISTRO_NAME') or d.getVar('DISTRO')} SDK"
 
-SDK_TARGET_MANIFEST = "${SDK_DEPLOY}/${TOOLCHAIN_OUTPUTNAME}.target.manifest"
-SDK_HOST_MANIFEST = "${SDK_DEPLOY}/${TOOLCHAIN_OUTPUTNAME}.host.manifest"
+SDK_TARGET_MANIFEST = "${SDKDEPLOYDIR}/${TOOLCHAIN_OUTPUTNAME}.target.manifest"
+SDK_HOST_MANIFEST = "${SDKDEPLOYDIR}/${TOOLCHAIN_OUTPUTNAME}.host.manifest"
+SDK_EXT_TARGET_MANIFEST = "${SDK_DEPLOY}/${TOOLCHAINEXT_OUTPUTNAME}.target.manifest"
+SDK_EXT_HOST_MANIFEST = "${SDK_DEPLOY}/${TOOLCHAINEXT_OUTPUTNAME}.host.manifest"
+
 python write_target_sdk_manifest () {
     from oe.sdk import sdk_list_installed_packages
     from oe.utils import format_pkg_list
-    sdkmanifestdir = os.path.dirname(d.getVar("SDK_TARGET_MANIFEST", True))
+    sdkmanifestdir = os.path.dirname(d.getVar("SDK_TARGET_MANIFEST"))
     pkgs = sdk_list_installed_packages(d, True)
     if not os.path.exists(sdkmanifestdir):
         bb.utils.mkdirhier(sdkmanifestdir)
-    with open(d.getVar('SDK_TARGET_MANIFEST', True), 'w') as output:
+    with open(d.getVar('SDK_TARGET_MANIFEST'), 'w') as output:
         output.write(format_pkg_list(pkgs, 'ver'))
+}
+
+python write_sdk_test_data() {
+    from oe.data import export2json
+    testdata = "%s/%s.testdata.json" % (d.getVar('SDKDEPLOYDIR'), d.getVar('TOOLCHAIN_OUTPUTNAME'))
+    bb.utils.mkdirhier(os.path.dirname(testdata))
+    export2json(d, testdata)
 }
 
 python write_host_sdk_manifest () {
     from oe.sdk import sdk_list_installed_packages
     from oe.utils import format_pkg_list
-    sdkmanifestdir = os.path.dirname(d.getVar("SDK_HOST_MANIFEST", True))
+    sdkmanifestdir = os.path.dirname(d.getVar("SDK_HOST_MANIFEST"))
     pkgs = sdk_list_installed_packages(d, False)
     if not os.path.exists(sdkmanifestdir):
         bb.utils.mkdirhier(sdkmanifestdir)
-    with open(d.getVar('SDK_HOST_MANIFEST', True), 'w') as output:
+    with open(d.getVar('SDK_HOST_MANIFEST'), 'w') as output:
         output.write(format_pkg_list(pkgs, 'ver'))
 }
 
-POPULATE_SDK_POST_TARGET_COMMAND_append = " write_target_sdk_manifest ; "
-POPULATE_SDK_POST_HOST_COMMAND_append = " write_host_sdk_manifest; "
+POPULATE_SDK_POST_TARGET_COMMAND_append = " write_sdk_test_data ; "
+POPULATE_SDK_POST_TARGET_COMMAND_append_task-populate-sdk  = " write_target_sdk_manifest ; "
+POPULATE_SDK_POST_HOST_COMMAND_append_task-populate-sdk = " write_host_sdk_manifest; "
 SDK_PACKAGING_COMMAND = "${@'${SDK_PACKAGING_FUNC};' if '${SDK_PACKAGING_FUNC}' else ''}"
 SDK_POSTPROCESS_COMMAND = " create_sdk_files; check_sdk_sysroots; tar_sdk; ${SDK_PACKAGING_COMMAND} "
 
-# Some archs override this, we need the nativesdk version
-# turns out this is hard to get from the datastore due to TRANSLATED_TARGET_ARCH
-# manipulation.
-SDK_OLDEST_KERNEL = "2.6.32"
-
-fakeroot python do_populate_sdk() {
+def populate_sdk_common(d):
     from oe.sdk import populate_sdk
     from oe.manifest import create_manifest, Manifest
 
-    pn = d.getVar('PN', True)
+    # Handle package exclusions
+    excl_pkgs = (d.getVar("PACKAGE_EXCLUDE") or "").split()
+    inst_pkgs = (d.getVar("PACKAGE_INSTALL") or "").split()
+    inst_attempt_pkgs = (d.getVar("PACKAGE_INSTALL_ATTEMPTONLY") or "").split()
+
+    d.setVar('PACKAGE_INSTALL_ORIG', ' '.join(inst_pkgs))
+    d.setVar('PACKAGE_INSTALL_ATTEMPTONLY', ' '.join(inst_attempt_pkgs))
+
+    for pkg in excl_pkgs:
+        if pkg in inst_pkgs:
+            bb.warn("Package %s, set to be excluded, is in %s PACKAGE_INSTALL (%s).  It will be removed from the list." % (pkg, d.getVar('PN'), inst_pkgs))
+            inst_pkgs.remove(pkg)
+
+        if pkg in inst_attempt_pkgs:
+            bb.warn("Package %s, set to be excluded, is in %s PACKAGE_INSTALL_ATTEMPTONLY (%s).  It will be removed from the list." % (pkg, d.getVar('PN'), inst_pkgs))
+            inst_attempt_pkgs.remove(pkg)
+
+    d.setVar("PACKAGE_INSTALL", ' '.join(inst_pkgs))
+    d.setVar("PACKAGE_INSTALL_ATTEMPTONLY", ' '.join(inst_attempt_pkgs))
+
+    pn = d.getVar('PN')
     runtime_mapping_rename("TOOLCHAIN_TARGET_TASK", pn, d)
     runtime_mapping_rename("TOOLCHAIN_TARGET_TASK_ATTEMPTONLY", pn, d)
 
@@ -104,17 +137,26 @@ fakeroot python do_populate_sdk() {
     ld.setVar("PKGDATA_DIR", "${STAGING_DIR}/${SDK_ARCH}-${SDKPKGSUFFIX}${SDK_VENDOR}-${SDK_OS}/pkgdata")
     runtime_mapping_rename("TOOLCHAIN_HOST_TASK", pn, ld)
     runtime_mapping_rename("TOOLCHAIN_HOST_TASK_ATTEMPTONLY", pn, ld)
-    d.setVar("TOOLCHAIN_HOST_TASK", ld.getVar("TOOLCHAIN_HOST_TASK", True))
-    d.setVar("TOOLCHAIN_HOST_TASK_ATTEMPTONLY", ld.getVar("TOOLCHAIN_HOST_TASK_ATTEMPTONLY", True))
+    d.setVar("TOOLCHAIN_HOST_TASK", ld.getVar("TOOLCHAIN_HOST_TASK"))
+    d.setVar("TOOLCHAIN_HOST_TASK_ATTEMPTONLY", ld.getVar("TOOLCHAIN_HOST_TASK_ATTEMPTONLY"))
     
     # create target/host SDK manifests
-    create_manifest(d, manifest_dir=d.getVar('SDK_DIR', True),
+    create_manifest(d, manifest_dir=d.getVar('SDK_DIR'),
                     manifest_type=Manifest.MANIFEST_TYPE_SDK_HOST)
-    create_manifest(d, manifest_dir=d.getVar('SDK_DIR', True),
+    create_manifest(d, manifest_dir=d.getVar('SDK_DIR'),
                     manifest_type=Manifest.MANIFEST_TYPE_SDK_TARGET)
 
     populate_sdk(d)
+
+fakeroot python do_populate_sdk() {
+    populate_sdk_common(d)
 }
+SSTATETASKS += "do_populate_sdk"
+SSTATE_SKIP_CREATION_task-populate-sdk = '1'
+do_populate_sdk[cleandirs] = "${SDKDEPLOYDIR}"
+do_populate_sdk[sstate-inputdirs] = "${SDKDEPLOYDIR}"
+do_populate_sdk[sstate-outputdirs] = "${SDK_DEPLOY}"
+do_populate_sdk[stamp-extra-info] = "${MACHINE_ARCH}${SDKMACHINE}"
 
 fakeroot create_sdk_files() {
 	cp ${COREBASE}/scripts/relocate_sdk.py ${SDK_OUTPUT}/${SDKPATH}/
@@ -128,7 +170,7 @@ fakeroot create_sdk_files() {
 python check_sdk_sysroots() {
     # Fails build if there are broken or dangling symlinks in SDK sysroots
 
-    if d.getVar('CHECK_SDK_SYSROOTS', True) != '1':
+    if d.getVar('CHECK_SDK_SYSROOTS') != '1':
         # disabled, bail out
         return
 
@@ -136,7 +178,8 @@ python check_sdk_sysroots() {
         return os.path.abspath(path)
 
     # Get scan root
-    SCAN_ROOT = norm_path("${SDK_OUTPUT}/${SDKPATH}/sysroots/")
+    SCAN_ROOT = norm_path("%s/%s/sysroots/" % (d.getVar('SDK_OUTPUT'),
+                                               d.getVar('SDKPATH')))
 
     bb.note('Checking SDK sysroots at ' + SCAN_ROOT)
 
@@ -180,14 +223,14 @@ SDKTAROPTS = "--owner=root --group=root"
 
 fakeroot tar_sdk() {
 	# Package it up
-	mkdir -p ${SDK_DEPLOY}
+	mkdir -p ${SDKDEPLOYDIR}
 	cd ${SDK_OUTPUT}/${SDKPATH}
-	tar ${SDKTAROPTS} -cf - . | pixz > ${SDK_DEPLOY}/${TOOLCHAIN_OUTPUTNAME}.tar.xz
+	tar ${SDKTAROPTS} -cf - . | xz -T 0 > ${SDKDEPLOYDIR}/${TOOLCHAIN_OUTPUTNAME}.tar.xz
 }
 
 fakeroot create_shar() {
 	# copy in the template shar extractor script
-	cp ${COREBASE}/meta/files/toolchain-shar-extract.sh ${SDK_DEPLOY}/${TOOLCHAIN_OUTPUTNAME}.sh
+	cp ${COREBASE}/meta/files/toolchain-shar-extract.sh ${SDKDEPLOYDIR}/${TOOLCHAIN_OUTPUTNAME}.sh
 
 	rm -f ${T}/pre_install_command ${T}/post_install_command
 
@@ -203,7 +246,7 @@ ${SDK_POST_INSTALL_COMMAND}
 EOF
 	sed -i -e '/@SDK_PRE_INSTALL_COMMAND@/r ${T}/pre_install_command' \
 		-e '/@SDK_POST_INSTALL_COMMAND@/r ${T}/post_install_command' \
-		${SDK_DEPLOY}/${TOOLCHAIN_OUTPUTNAME}.sh
+		${SDKDEPLOYDIR}/${TOOLCHAIN_OUTPUTNAME}.sh
 
 	# substitute variables
 	sed -i -e 's#@SDK_ARCH@#${SDK_ARCH}#g' \
@@ -211,20 +254,21 @@ EOF
 		-e 's#@SDKEXTPATH@#${SDKEXTPATH}#g' \
 		-e 's#@OLDEST_KERNEL@#${SDK_OLDEST_KERNEL}#g' \
 		-e 's#@REAL_MULTIMACH_TARGET_SYS@#${REAL_MULTIMACH_TARGET_SYS}#g' \
-		-e 's#@SDK_TITLE@#${SDK_TITLE}#g' \
+		-e 's#@SDK_TITLE@#${@d.getVar("SDK_TITLE").replace('&', '\&')}#g' \
 		-e 's#@SDK_VERSION@#${SDK_VERSION}#g' \
 		-e '/@SDK_PRE_INSTALL_COMMAND@/d' \
 		-e '/@SDK_POST_INSTALL_COMMAND@/d' \
-		${SDK_DEPLOY}/${TOOLCHAIN_OUTPUTNAME}.sh
+		-e 's#@SDK_GCC_VER@#${@oe.utils.host_gcc_version(d)}#g' \
+		${SDKDEPLOYDIR}/${TOOLCHAIN_OUTPUTNAME}.sh
 
 	# add execution permission
-	chmod +x ${SDK_DEPLOY}/${TOOLCHAIN_OUTPUTNAME}.sh
+	chmod +x ${SDKDEPLOYDIR}/${TOOLCHAIN_OUTPUTNAME}.sh
 
 	# append the SDK tarball
-	cat ${SDK_DEPLOY}/${TOOLCHAIN_OUTPUTNAME}.tar.xz >> ${SDK_DEPLOY}/${TOOLCHAIN_OUTPUTNAME}.sh
+	cat ${SDKDEPLOYDIR}/${TOOLCHAIN_OUTPUTNAME}.tar.xz >> ${SDKDEPLOYDIR}/${TOOLCHAIN_OUTPUTNAME}.sh
 
 	# delete the old tarball, we don't need it anymore
-	rm ${SDK_DEPLOY}/${TOOLCHAIN_OUTPUTNAME}.tar.xz
+	rm ${SDKDEPLOYDIR}/${TOOLCHAIN_OUTPUTNAME}.tar.xz
 }
 
 populate_sdk_log_check() {
@@ -234,8 +278,7 @@ populate_sdk_log_check() {
 
 		echo "log_check: Using $lf_path as logfile"
 
-		if test -e "$lf_path"
-		then
+		if [ -e "$lf_path" ]; then
 			${IMAGE_PKGTYPE}_log_check $target $lf_path
 		else
 			echo "Cannot find logfile [$lf_path]"
@@ -245,13 +288,12 @@ populate_sdk_log_check() {
 }
 
 def sdk_command_variables(d):
-    return ['OPKG_PREPROCESS_COMMANDS','OPKG_POSTPROCESS_COMMANDS','POPULATE_SDK_POST_HOST_COMMAND','POPULATE_SDK_POST_TARGET_COMMAND','SDK_POSTPROCESS_COMMAND','RPM_PREPROCESS_COMMANDS',
-            'RPM_POSTPROCESS_COMMANDS']
+    return ['OPKG_PREPROCESS_COMMANDS','OPKG_POSTPROCESS_COMMANDS','POPULATE_SDK_POST_HOST_COMMAND','POPULATE_SDK_PRE_TARGET_COMMAND','POPULATE_SDK_POST_TARGET_COMMAND','SDK_POSTPROCESS_COMMAND','RPM_PREPROCESS_COMMANDS','RPM_POSTPROCESS_COMMANDS']
 
 def sdk_variables(d):
     variables = ['BUILD_IMAGES_FROM_FEEDS','SDK_OS','SDK_OUTPUT','SDKPATHNATIVE','SDKTARGETSYSROOT','SDK_DIR','SDK_VENDOR','SDKIMAGE_INSTALL_COMPLEMENTARY','SDK_PACKAGE_ARCHS','SDK_OUTPUT',
                  'SDKTARGETSYSROOT','MULTILIB_VARIANTS','MULTILIBS','ALL_MULTILIB_PACKAGE_ARCHS','MULTILIB_GLOBAL_VARIANTS','BAD_RECOMMENDATIONS','NO_RECOMMENDATIONS','PACKAGE_ARCHS',
-                 'PACKAGE_CLASSES','TARGET_VENDOR','TARGET_VENDOR','TARGET_ARCH','TARGET_OS','BBEXTENDVARIANT','FEED_DEPLOYDIR_BASE_URI']
+                 'PACKAGE_CLASSES','TARGET_VENDOR','TARGET_VENDOR','TARGET_ARCH','TARGET_OS','BBEXTENDVARIANT','FEED_DEPLOYDIR_BASE_URI', 'PACKAGE_EXCLUDE_COMPLEMENTARY']
     variables.extend(sdk_command_variables(d))
     return " ".join(variables)
 
@@ -261,7 +303,7 @@ do_populate_sdk[file-checksums] += "${COREBASE}/meta/files/toolchain-shar-reloca
                                     ${COREBASE}/meta/files/toolchain-shar-extract.sh:True"
 
 do_populate_sdk[dirs] = "${PKGDATA_DIR} ${TOPDIR}"
-do_populate_sdk[depends] += "${@' '.join([x + ':do_populate_sysroot' for x in d.getVar('SDK_DEPENDS', True).split()])}  ${@d.getVarFlag('do_rootfs', 'depends', False)}"
-do_populate_sdk[rdepends] = "${@' '.join([x + ':do_populate_sysroot' for x in d.getVar('SDK_RDEPENDS', True).split()])}"
+do_populate_sdk[depends] += "${@' '.join([x + ':do_populate_sysroot' for x in d.getVar('SDK_DEPENDS').split()])}  ${@d.getVarFlag('do_rootfs', 'depends', False)}"
+do_populate_sdk[rdepends] = "${@' '.join([x + ':do_package_write_${IMAGE_PKGTYPE} ' + x + ':do_packagedata' for x in d.getVar('SDK_RDEPENDS').split()])}"
 do_populate_sdk[recrdeptask] += "do_packagedata do_package_write_rpm do_package_write_ipk do_package_write_deb"
 addtask populate_sdk

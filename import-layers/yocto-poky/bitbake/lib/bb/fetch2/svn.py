@@ -28,7 +28,6 @@ import sys
 import logging
 import bb
 import re
-from   bb import data
 from   bb.fetch2 import FetchMethod
 from   bb.fetch2 import FetchError
 from   bb.fetch2 import MissingParameterError
@@ -50,7 +49,7 @@ class Svn(FetchMethod):
         if not "module" in ud.parm:
             raise MissingParameterError('module', ud.url)
 
-        ud.basecmd = d.getVar('FETCHCMD_svn', True)
+        ud.basecmd = d.getVar('FETCHCMD_svn')
 
         ud.module = ud.parm["module"]
 
@@ -61,15 +60,15 @@ class Svn(FetchMethod):
 
         # Create paths to svn checkouts
         relpath = self._strip_leading_slashes(ud.path)
-        ud.pkgdir = os.path.join(data.expand('${SVNDIR}', d), ud.host, relpath)
+        ud.pkgdir = os.path.join(d.expand('${SVNDIR}'), ud.host, relpath)
         ud.moddir = os.path.join(ud.pkgdir, ud.module)
 
-        ud.setup_revisons(d)
+        ud.setup_revisions(d)
 
         if 'rev' in ud.parm:
             ud.revision = ud.parm['rev']
 
-        ud.localfile = data.expand('%s_%s_%s_%s_.tar.gz' % (ud.module.replace('/', '.'), ud.host, ud.path.replace('/', '.'), ud.revision), d)
+        ud.localfile = d.expand('%s_%s_%s_%s_.tar.gz' % (ud.module.replace('/', '.'), ud.host, ud.path.replace('/', '.'), ud.revision))
 
     def _buildsvncommand(self, ud, d, command):
         """
@@ -79,9 +78,9 @@ class Svn(FetchMethod):
 
         proto = ud.parm.get('protocol', 'svn')
 
-        svn_rsh = None
-        if proto == "svn+ssh" and "rsh" in ud.parm:
-            svn_rsh = ud.parm["rsh"]
+        svn_ssh = None
+        if proto == "svn+ssh" and "ssh" in ud.parm:
+            svn_ssh = ud.parm["ssh"]
 
         svnroot = ud.host + ud.path
 
@@ -113,8 +112,8 @@ class Svn(FetchMethod):
             else:
                 raise FetchError("Invalid svn command %s" % command, ud.url)
 
-        if svn_rsh:
-            svncmd = "svn_RSH=\"%s\" %s" % (svn_rsh, svncmd)
+        if svn_ssh:
+            svncmd = "SVN_SSH=\"%s\" %s" % (svn_ssh, svncmd)
 
         return svncmd
 
@@ -126,35 +125,32 @@ class Svn(FetchMethod):
         if os.access(os.path.join(ud.moddir, '.svn'), os.R_OK):
             svnupdatecmd = self._buildsvncommand(ud, d, "update")
             logger.info("Update " + ud.url)
-            # update sources there
-            os.chdir(ud.moddir)
             # We need to attempt to run svn upgrade first in case its an older working format
             try:
-                runfetchcmd(ud.basecmd + " upgrade", d)
+                runfetchcmd(ud.basecmd + " upgrade", d, workdir=ud.moddir)
             except FetchError:
                 pass
             logger.debug(1, "Running %s", svnupdatecmd)
             bb.fetch2.check_network_access(d, svnupdatecmd, ud.url)
-            runfetchcmd(svnupdatecmd, d)
+            runfetchcmd(svnupdatecmd, d, workdir=ud.moddir)
         else:
             svnfetchcmd = self._buildsvncommand(ud, d, "fetch")
             logger.info("Fetch " + ud.url)
             # check out sources there
             bb.utils.mkdirhier(ud.pkgdir)
-            os.chdir(ud.pkgdir)
             logger.debug(1, "Running %s", svnfetchcmd)
             bb.fetch2.check_network_access(d, svnfetchcmd, ud.url)
-            runfetchcmd(svnfetchcmd, d)
+            runfetchcmd(svnfetchcmd, d, workdir=ud.pkgdir)
 
         scmdata = ud.parm.get("scmdata", "")
         if scmdata == "keep":
             tar_flags = ""
         else:
-            tar_flags = "--exclude '.svn'"
+            tar_flags = "--exclude='.svn'"
 
-        os.chdir(ud.pkgdir)
         # tar them up to a defined filename
-        runfetchcmd("tar %s -czf %s %s" % (tar_flags, ud.localpath, ud.path_spec), d, cleanup = [ud.localpath])
+        runfetchcmd("tar %s -czf %s %s" % (tar_flags, ud.localpath, ud.path_spec), d,
+                    cleanup=[ud.localpath], workdir=ud.pkgdir)
 
     def clean(self, ud, d):
         """ Clean SVN specific files and dirs """
@@ -176,7 +172,7 @@ class Svn(FetchMethod):
         """
         Return the latest upstream revision number
         """
-        bb.fetch2.check_network_access(d, self._buildsvncommand(ud, d, "log1"))
+        bb.fetch2.check_network_access(d, self._buildsvncommand(ud, d, "log1"), ud.url)
 
         output = runfetchcmd("LANG=C LC_ALL=C " + self._buildsvncommand(ud, d, "log1"), d, True)
 

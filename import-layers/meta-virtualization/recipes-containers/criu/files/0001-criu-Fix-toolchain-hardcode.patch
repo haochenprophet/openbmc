@@ -1,46 +1,99 @@
-From 3d4f112fdb434712eba09239a468842323f1af4c Mon Sep 17 00:00:00 2001
-From: Yang Shi <yang.shi@windriver.com>
-Date: Tue, 26 Aug 2014 14:42:42 -0700
-Subject: [PATCH 1/2] criu: Fix toolchain hardcode
+From c005b7a4874f55df687ff22bc425551775581421 Mon Sep 17 00:00:00 2001
+From: Mark Asselstine <mark.asselstine@windriver.com>
+Date: Fri, 8 Sep 2017 15:02:14 -0400
+Subject: [PATCH] criu: Fix toolchain hardcode
 
 Replace ":=" to "?=" so that the toolchain used by bitbake build system will
 be taken.
 
 Signed-off-by: Yang Shi <yang.shi@windriver.com>
-Signed-off-by: Nam Ninh <nam.ninh@windriver.com>
+Signed-off-by: Jianchuan Wang <jianchuan.wang@windriver.com>
+Signed-off-by: Mark Asselstine <mark.asselstine@windriver.com>
+
 ---
- Makefile | 18 +++++++++---------
- 1 file changed, 9 insertions(+), 9 deletions(-)
+ Makefile                       |  2 +-
+ scripts/nmk/scripts/include.mk |  2 +-
+ scripts/nmk/scripts/tools.mk   | 40 ++++++++++++++++++++--------------------
+ 3 files changed, 22 insertions(+), 22 deletions(-)
 
 diff --git a/Makefile b/Makefile
-index f1c8784..43252ec 100644
+index f2583a2..d7f51e5 100644
 --- a/Makefile
 +++ b/Makefile
-@@ -23,15 +23,15 @@ export VERSION_SO_MAJOR VERSION_SO_MINOR
- # Common definitions
+@@ -17,7 +17,7 @@ ifeq ($(origin HOSTCFLAGS), undefined)
+         HOSTCFLAGS := $(CFLAGS) $(USERCFLAGS)
+ endif
+ 
+-UNAME-M := $(shell uname -m)
++UNAME-M ?= $(shell uname -m)
+ 
  #
+ # Supported Architectures
+diff --git a/scripts/nmk/scripts/include.mk b/scripts/nmk/scripts/include.mk
+index 04ccb3a..0d63bc7 100644
+--- a/scripts/nmk/scripts/include.mk
++++ b/scripts/nmk/scripts/include.mk
+@@ -20,7 +20,7 @@ SUBARCH := $(shell uname -m | sed       \
+                 -e s/aarch64.*/aarch64/)
  
--FIND		:= find
--CSCOPE		:= cscope
+ ARCH		?= $(SUBARCH)
+-SRCARCH 	:= $(ARCH)
++SRCARCH 	?= $(ARCH)
+ 
+ export SUBARCH ARCH SRCARCH
+ 
+diff --git a/scripts/nmk/scripts/tools.mk b/scripts/nmk/scripts/tools.mk
+index 56dba84..1698821 100644
+--- a/scripts/nmk/scripts/tools.mk
++++ b/scripts/nmk/scripts/tools.mk
+@@ -2,30 +2,30 @@ ifndef ____nmk_defined__tools
+ 
+ #
+ # System tools shorthands
 -RM		:= rm -f
--LD		:= $(CROSS_COMPILE)ld
--CC		:= $(CROSS_COMPILE)gcc
--NM		:= $(CROSS_COMPILE)nm
--SH		:= bash
--MAKE		:= make
--OBJCOPY		:= $(CROSS_COMPILE)objcopy
-+FIND		?= find
-+CSCOPE		?= cscope
 +RM		?= rm -f
-+LD		?= $(CROSS_COMPILE)ld
-+CC		?= $(CROSS_COMPILE)gcc
-+NM		?= $(CROSS_COMPILE)nm
-+SH		?= bash
-+MAKE		?= make
+ HOSTLD		?= ld
+-LD		:= $(CROSS_COMPILE)$(HOSTLD)
++LD		?= $(CROSS_COMPILE)$(HOSTLD)
+ HOSTCC		?= gcc
+-CC		:= $(CROSS_COMPILE)$(HOSTCC)
+-CPP		:= $(CC) -E
+-AS		:= $(CROSS_COMPILE)as
+-AR		:= $(CROSS_COMPILE)ar
+-STRIP		:= $(CROSS_COMPILE)strip
+-OBJCOPY		:= $(CROSS_COMPILE)objcopy
+-OBJDUMP		:= $(CROSS_COMPILE)objdump
+-NM		:= $(CROSS_COMPILE)nm
+-MAKE		:= make
+-MKDIR		:= mkdir -p
+-AWK		:= awk
+-PERL		:= perl
+-PYTHON		:= python
+-FIND		:= find
+-SH		:= $(shell if [ -x "$$BASH" ]; then echo $$BASH;        \
++CC		?= $(CROSS_COMPILE)$(HOSTCC)
++CPP		?= $(CC) -E
++AS		?= $(CROSS_COMPILE)as
++AR		?= $(CROSS_COMPILE)ar
++STRIP		?= $(CROSS_COMPILE)strip
 +OBJCOPY		?= $(CROSS_COMPILE)objcopy
++OBJDUMP		?= $(CROSS_COMPILE)objdump
++NM		?= $(CROSS_COMPILE)nm
++MAKE		?= make
++MKDIR		?= mkdir -p
++AWK		?= awk
++PERL		?= perl
++PYTHON		?= python
++FIND		?= find
++SH		?= $(shell if [ -x "$$BASH" ]; then echo $$BASH;        \
+                         else if [ -x /bin/bash ]; then echo /bin/bash;  \
+                         else echo sh; fi ; fi)
+-CSCOPE		:= cscope
+-ETAGS		:= etags
+-CTAGS		:= ctags
++CSCOPE		?= cscope
++ETAGS		?= etags
++CTAGS		?= ctags
  
- CFLAGS		+= $(USERCFLAGS)
- 
--- 
-2.0.2
-
+ export RM HOSTLD LD HOSTCC CC CPP AS AR STRIP OBJCOPY OBJDUMP
+ export NM SH MAKE MKDIR AWK PERL PYTHON SH CSCOPE

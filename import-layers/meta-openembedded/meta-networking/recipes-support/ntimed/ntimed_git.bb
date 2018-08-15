@@ -6,7 +6,7 @@ HOMEPAGE = "https://github.com/bsdphk/Ntimed"
 SECTION = "net"
 
 LICENSE = "BSD-2-Clause"
-LIC_FILES_CHKSUM = "file://main.c;startline=2;endline=24;md5=eda11d21005319bb76cbb6f911f0f66d"
+LIC_FILES_CHKSUM = "file://main.c;beginline=2;endline=24;md5=89db8e76f2951f3fad167e7aa9718a44"
 
 SRC_URI = "git://github.com/bsdphk/Ntimed \
            file://use-ldflags.patch"
@@ -16,6 +16,9 @@ SRCREV = "db0abbb4c80f2ecef6bc5d9639bca5bea28532a2"
 
 S = "${WORKDIR}/git"
 
+# use adjtimex on musl
+CFLAGS_append_libc-musl = " -Dntp_adjtime=adjtimex"
+
 EXTRA_OEMAKE = "\
     'CC=${CC}' \
     'CFLAGS=${CFLAGS}' \
@@ -23,11 +26,7 @@ EXTRA_OEMAKE = "\
 "
 
 do_configure () {
-    sh ./configure
-}
-
-do_compile () {
-    oe_runmake
+    sh ${S}/configure
 }
 
 do_install () {

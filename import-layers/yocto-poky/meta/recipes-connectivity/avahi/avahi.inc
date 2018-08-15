@@ -23,15 +23,20 @@ SRC_URI = "https://github.com/lathiat/avahi/releases/download/v${PV}/avahi-${PV}
           "
 UPSTREAM_CHECK_URI = "https://github.com/lathiat/avahi/releases/"
 
-PACKAGECONFIG ??= "dbus"
+# For gtk related PACKAGECONFIGs: gtk, gtk3
+AVAHI_GTK ?= ""
+
+PACKAGECONFIG ??= "dbus ${AVAHI_GTK}"
 PACKAGECONFIG[dbus] = "--enable-dbus,--disable-dbus,dbus"
+PACKAGECONFIG[gtk] = "--enable-gtk,--disable-gtk,gtk+"
+PACKAGECONFIG[gtk3] = "--enable-gtk3,--disable-gtk3,gtk+3"
 
 USERADD_PACKAGES = "avahi-daemon avahi-autoipd"
-USERADD_PARAM_avahi-daemon = "--system --home /var/run/avahi-daemon \
+USERADD_PARAM_avahi-daemon = "--system --home /run/avahi-daemon \
                               --no-create-home --shell /bin/false \
                               --user-group avahi"
 
-USERADD_PARAM_avahi-autoipd = "--system --home /var/run/avahi-autoipd \
+USERADD_PARAM_avahi-autoipd = "--system --home /run/avahi-autoipd \
                               --no-create-home --shell /bin/false \
                               --user-group \
                               -c \"Avahi autoip daemon\" \
@@ -48,20 +53,14 @@ EXTRA_OECONF = "--with-avahi-priv-access-group=adm \
              --disable-qt4 \
              --disable-python \
              --disable-doxygen-doc \
-             --disable-manpages \
+             --enable-manpages \
              ${EXTRA_OECONF_SYSVINIT} \
              ${EXTRA_OECONF_SYSTEMD} \
-             ${AVAHI_GTK} \
            "
 
 # The distro choice determines what init scripts are installed
 EXTRA_OECONF_SYSVINIT = "${@bb.utils.contains('DISTRO_FEATURES','sysvinit','--with-distro=debian','--with-distro=none',d)}"
 EXTRA_OECONF_SYSTEMD = "${@bb.utils.contains('DISTRO_FEATURES','systemd','--with-systemdsystemunitdir=${systemd_unitdir}/system/','--without-systemdsystemunitdir',d)}"
-
-AVAHI_GTK ?= "--disable-gtk --disable-gtk3"
-
-LDFLAGS_append_libc-uclibc = " -lintl"
-LDFLAGS_append_uclinux-uclibc = " -lintl"
 
 do_configure_prepend() {
     sed 's:AM_CHECK_PYMOD:echo "no pymod" #AM_CHECK_PYMOD:g' -i ${S}/configure.ac
@@ -71,7 +70,7 @@ do_configure_prepend() {
 }
 
 do_compile_prepend() {
-    export GIR_EXTRA_LIBS_PATH="${B}/avahi-common/.libs:${B}/avahi-client/.libs:${B}/avahi-glib/.libs"
+    export GIR_EXTRA_LIBS_PATH="${B}/avahi-gobject/.libs:${B}/avahi-common/.libs:${B}/avahi-client/.libs:${B}/avahi-glib/.libs"
 }
 
 PACKAGES =+ "avahi-daemon libavahi-common libavahi-core libavahi-client avahi-dnsconfd libavahi-glib libavahi-ui avahi-autoipd avahi-utils"
@@ -107,14 +106,8 @@ FILES_avahi-utils = "${bindir}/avahi-*"
 
 RDEPENDS_${PN}-dev = "avahi-daemon (= ${EXTENDPKGV}) libavahi-core (= ${EXTENDPKGV}) libavahi-client (= ${EXTENDPKGV})"
 
-# uclibc has no nss
 RRECOMMENDS_avahi-daemon_append_libc-glibc = " libnss-mdns"
 RRECOMMENDS_${PN}_append_libc-glibc = " libnss-mdns"
-
-RRECOMMENDS_avahi-dev = "expat-dev libcap-dev libdaemon-dev dbus-dev glib-2.0-dev update-rc.d-dev"
-RRECOMMENDS_avahi-dev_append_libc-glibc = " gettext-dev"
-
-RRECOMMENDS_avahi-dev[nodeprrecs] = "1"
 
 CONFFILES_avahi-daemon = "${sysconfdir}/avahi/avahi-daemon.conf"
 
@@ -126,12 +119,7 @@ INITSCRIPT_PARAMS_avahi-dnsconfd = "defaults 22 19"
 
 do_install() {
 	autotools_do_install
-
-	# don't install /var/run when populating rootfs. Do it through volatile
-	# /var/run of current version is empty, so just remove it.
-	# if /var/run become non-empty in the future, need to install it via volatile
-	rm -rf ${D}${localstatedir}/run
-	rmdir --ignore-fail-on-non-empty ${D}${localstatedir}
+	rm -rf ${D}/run
 	rm -rf ${D}${datadir}/dbus-1/interfaces
 	test -d ${D}${datadir}/dbus-1 && rmdir --ignore-fail-on-non-empty ${D}${datadir}/dbus-1
 	rm -rf ${D}${libdir}/avahi
@@ -148,14 +136,4 @@ pkg_postinst_avahi-daemon () {
 if [ -z "$D" ]; then
 	killall -q -HUP dbus-daemon || true
 fi
-}
-
-pkg_postrm_avahi-daemon () {
-	deluser avahi || true
-	delgroup avahi || true
-}
-
-pkg_postrm_avahi-autoipd () {
-	deluser avahi-autoipd || true
-	delgroup avahi-autoipd || true
 }

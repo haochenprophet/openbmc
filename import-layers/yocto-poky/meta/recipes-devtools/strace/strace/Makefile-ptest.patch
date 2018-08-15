@@ -1,35 +1,39 @@
-strace: Add ptest
+From 0574ae9926308dcbca78bd8cd0f0f143f19cbcb5 Mon Sep 17 00:00:00 2001
+From: Gabriel Barbu <gabriel.barbu@enea.com>
+Date: Thu, 25 Jul 2013 15:28:33 +0200
+Subject: [PATCH 4/8] strace: Add ptest
 
 Upstream-Status: Inappropriate
 
 Signed-off-by: Gabriel Barbu <gabriel.barbu@enea.com>
 Signed-off-by: Chong Lu <Chong.Lu@windriver.com>
+
 ---
  configure.ac      |  2 +-
  tests/Makefile.am | 18 ++++++++++++++++++
  2 files changed, 19 insertions(+), 1 deletion(-)
 
 diff --git a/configure.ac b/configure.ac
-index 0209bac..b969e25 100644
+index 5f0aec4..8eaacc6 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -36,7 +36,7 @@ AC_INIT([strace],
+@@ -42,7 +42,7 @@ AC_COPYRIGHT([Copyright (c) 1999-]copyright_year[ The strace developers.])
  AC_CONFIG_SRCDIR([strace.c])
  AC_CONFIG_AUX_DIR([.])
  AC_CONFIG_HEADERS([config.h])
--AM_INIT_AUTOMAKE([foreign nostdinc dist-xz no-dist-gzip silent-rules parallel-tests])
-+AM_INIT_AUTOMAKE([foreign nostdinc dist-xz no-dist-gzip silent-rules serial-tests])
+-AM_INIT_AUTOMAKE([foreign nostdinc dist-xz silent-rules parallel-tests 1.13])
++AM_INIT_AUTOMAKE([foreign nostdinc dist-xz silent-rules serial-tests 1.13])
  AM_MAINTAINER_MODE
  AC_CANONICAL_HOST
  
 diff --git a/tests/Makefile.am b/tests/Makefile.am
-index 0f23b4b..429f7e9 100644
+index b4ba22a..5836438 100644
 --- a/tests/Makefile.am
 +++ b/tests/Makefile.am
-@@ -332,3 +332,21 @@ ksysent.h: $(srcdir)/ksysent.sed
+@@ -408,3 +408,21 @@ BUILT_SOURCES = ksysent.h
+ CLEANFILES = ksysent.h
  
- BUILT_SOURCES = ksysent.h
- CLEANFILES = ksysent.h $(TESTS:=.tmp)
+ include ../scno.am
 +
 +buildtest-TESTS: $(check_PROGRAMS) $(TESTS)
 +
@@ -47,7 +51,4 @@ index 0f23b4b..429f7e9 100644
 +		install $(srcdir)/$$file $(DESTDIR)/$(TESTDIR); \
 +		sed -i -e 's/$${srcdir=.}/./g' $(DESTDIR)/$(TESTDIR)/$$file; \
 +	done
-+	for i in net net-fd scm_rights-fd sigaction; do sed -i -e 's/$$srcdir/./g' $(DESTDIR)/$(TESTDIR)/$$i.test; done
--- 
-1.9.1
-
++	for i in net scm_rights-fd rt_sigaction; do sed -i -e 's/$$srcdir/./g' $(DESTDIR)/$(TESTDIR)/$$i.test; done

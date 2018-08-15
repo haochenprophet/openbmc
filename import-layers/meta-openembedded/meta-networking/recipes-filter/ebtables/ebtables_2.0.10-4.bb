@@ -1,24 +1,37 @@
 SUMMARY = "Filtering tool for a Linux-based bridging firewall"
+HOMEPAGE = "http://sourceforge.net/projects/ebtables/"
 DESCRIPTION = "Utility for basic Ethernet frame filtering on a Linux bridge, \
                advanced logging, MAC DNAT/SNAT and brouting."
 LICENSE = "GPLv2"
 LIC_FILES_CHKSUM = "file://COPYING;md5=53b4a999993871a28ab1488fdbd2e73e"
 SECTION = "net"
-PR = "r3"
+PR = "r4"
 
-RDEPENDS_${PN} += "perl"
+RDEPENDS_${PN} += "bash"
 
 RRECOMMENDS_${PN} += "kernel-module-ebtables \
     "
 
 SRC_URI = "${SOURCEFORGE_MIRROR}/ebtables/ebtables-v${PV}.tar.gz \
+           file://ebtables-save \
            file://installnonroot.patch \
            file://01debian_defaultconfig.patch \
            file://ebtables.init \
            file://ebtables.common \
            file://ebtables.service \
            file://no-as-needed.patch \
-"
+           file://0001-add-RARP-and-update-iana-url.patch \
+           file://0002-fix-compilation-warning.patch \
+           file://0003-add-info-about-Wl-no-as-needed.patch \
+           file://0004-workaround-for-kernel-regression-bug-IPv6-source-des.patch \
+           file://0005-Add-noflush-command-line-support-for-ebtables-restor.patch \
+           file://0006-don-t-print-IPv6-mask-if-it-s-all-ones-based-on-patc.patch \
+           file://0007-extensions-Use-stdint-types.patch \
+           file://0008-ethernetdb.h-Remove-C-specific-compiler-hint-macro-_.patch \
+           file://0009-ebtables-Allow-RETURN-target-rules-in-user-defined-c.patch \
+           "
+
+SRC_URI_append_libc-musl = " file://0010-Adjust-header-include-sequence.patch"
 
 SRC_URI[md5sum] = "506742a3d44b9925955425a659c1a8d0"
 SRC_URI[sha256sum] = "dc6f7b484f207dc712bfca81645f45120cb6aee3380e77a1771e9c34a9a4455d"
@@ -30,10 +43,10 @@ inherit update-rc.d systemd
 python __anonymous () {
     import re
 
-    karch = d.getVar('KARCH', True)
-    multilib = d.getVar('MLPREFIX', True)
+    karch = d.getVar('TARGET_ARCH')
+    multilib = d.getVar('MLPREFIX')
 
-    if multilib and karch == 'powerpc64':
+    if multilib and ( karch == 'powerpc64' or karch == 'arm' ):
         searchstr = "lib.?32"
         reg = re.compile(searchstr)
         if reg.search(multilib):
@@ -68,10 +81,10 @@ do_install () {
     mv ${D}${sysconfdir}/default/ebtables-config ${D}${sysconfdir}/default/ebtables
     sed -i 's!/usr/sbin/!${sbindir}/!g' ${D}${sysconfdir}/init.d/ebtables
 
-    # The script ebtables-save refernces perl in exec_prefix, so
-    # move it to sbindir to avoid QA issue
-    install -d ${D}/${sbindir}
-    mv ${D}/${base_sbindir}/ebtables-save ${D}/${sbindir}
+    # Replace upstream ebtables-save perl script with Fedora bash based rewrite
+    # http://pkgs.fedoraproject.org/cgit/rpms/ebtables.git/tree/ebtables-save
+    install -m 0755 ${WORKDIR}/ebtables-save ${D}${base_sbindir}/ebtables-save
+    sed -i 's!/sbin/!${base_sbindir}/!g' ${D}${base_sbindir}/ebtables-save
 
     # Install systemd service files
     install -d ${D}${systemd_unitdir}/system

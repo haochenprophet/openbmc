@@ -1,22 +1,23 @@
 SUMMARY = "An Internet printing system for Unix"
+HOMEPAGE = "https://www.cups.org/"
 SECTION = "console/utils"
 LICENSE = "GPLv2 & LGPLv2"
 DEPENDS = "gnutls libpng jpeg dbus dbus-glib zlib libusb"
 
-SRC_URI = "https://www.cups.org/software/${PV}/${BP}-source.tar.bz2 \
+SRC_URI = "https://github.com/apple/cups/releases/download/v${PV}/${BP}-source.tar.gz \
            file://use_echo_only_in_init.patch \
            file://0001-don-t-try-to-run-generated-binaries.patch \
            file://cups_serverbin.patch \
 	  "
 
-UPSTREAM_CHECK_URI = "http://www.cups.org/software.php"
+UPSTREAM_CHECK_URI = "https://github.com/apple/cups/releases"
 UPSTREAM_CHECK_REGEX = "cups-(?P<pver>\d+\.\d+(\.\d+)?)-source.tar"
 
 LEAD_SONAME = "libcupsdriver.so"
 
 CLEANBROKEN = "1"
 
-inherit autotools-brokensep binconfig useradd systemd
+inherit autotools-brokensep binconfig useradd systemd pkgconfig
 
 USERADD_PACKAGES = "${PN}"
 GROUPADD_PARAM_${PN} = "--system lpadmin"
@@ -24,8 +25,7 @@ GROUPADD_PARAM_${PN} = "--system lpadmin"
 SYSTEMD_SERVICE_${PN} = "org.cups.cupsd.socket org.cups.cupsd.path org.cups.cupsd.service org.cups.cups-lpd.socket org.cups.cups-lpd@.service"
 
 PACKAGECONFIG ??= "${@bb.utils.contains('DISTRO_FEATURES', 'zeroconf', 'avahi', '', d)} \
-                   ${@bb.utils.contains('DISTRO_FEATURES', 'systemd', 'systemd', '', d)} \
-                   ${@bb.utils.contains('DISTRO_FEATURES', 'pam', 'pam', '', d)}"
+                   ${@bb.utils.filter('DISTRO_FEATURES', 'pam systemd', d)}"
 PACKAGECONFIG[avahi] = "--enable-avahi,--disable-avahi,avahi"
 PACKAGECONFIG[acl] = "--enable-acl,--disable-acl,acl"
 PACKAGECONFIG[pam] = "--enable-pam, --disable-pam, libpam"
@@ -44,6 +44,7 @@ EXTRA_OECONF = " \
                --without-perl \
                --without-python \
                --without-java \
+               DSOFLAGS='${LDFLAGS}' \
                "
 
 EXTRA_AUTORECONF += "--exclude=autoheader"
@@ -77,13 +78,6 @@ do_install () {
 	    rm -rf ${D}${sysconfdir}/init.d/
 	    rm -rf ${D}${sysconfdir}/rc*
 	fi
-}
-
-python do_package_append() {
-    import subprocess
-    # Change permissions back the way they were, they probably had a reason...
-    workdir = d.getVar('WORKDIR', True)
-    subprocess.call('chmod 0511 %s/install/cups/var/run/cups/certs' % workdir, shell=True)
 }
 
 PACKAGES =+ "${PN}-lib ${PN}-libimage"

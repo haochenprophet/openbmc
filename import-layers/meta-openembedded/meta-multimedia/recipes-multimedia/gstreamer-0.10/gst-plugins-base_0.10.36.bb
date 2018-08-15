@@ -11,6 +11,7 @@ DEPENDS += "alsa-lib libogg libvorbis libtheora util-linux tremor glib-2.0-nativ
 SRC_URI += "file://gst-plugins-base-tremor.patch \
             file://configure.ac-fix-subparse-plugin.patch \
             file://audioresample-Fix-build-on-x86-if-emmintrin.h-is-ava.patch \
+            file://0001-aclocal.m4-don-t-do-crazy-things-to-GLIB_CFLAGS.patch \
 "
 
 SRC_URI[md5sum] = "776c73883e567f67b9c4a2847d8d041a"
@@ -22,17 +23,16 @@ inherit gettext
 
 EXTRA_OECONF += "--disable-freetypetest"
 
-PACKAGECONFIG ??= "${@bb.utils.contains('DISTRO_FEATURES', 'x11', 'x11', '', d)}"
+PACKAGECONFIG ??= "${@bb.utils.filter('DISTRO_FEATURES', 'x11', d)}"
 
-PACKAGECONFIG[gnomevfs] = "--enable-gnome_vfs,--disable-gnome_vfs,gnome-vfs"
 PACKAGECONFIG[orc] = "--enable-orc,--disable-orc,orc"
 PACKAGECONFIG[pango] = "--enable-pango,--disable-pango,pango"
 PACKAGECONFIG[x11] = "--enable-x --enable-xvideo,--disable-x --disable-xvideo,virtual/libx11 libxv libsm libice"
 PACKAGECONFIG[cdparanoia] = "--enable-cdparanoia,--disable-cdparanoia,cdparanoia"
 
 do_configure_prepend() {
-	# This m4 file contains nastiness which conflicts with libtool 2.2.2
-	rm -f ${S}/m4/lib-link.m4
+    # This m4 file contains nastiness which conflicts with libtool 2.2.2
+    rm -f ${S}/m4/lib-link.m4
 }
 
 FILES_${PN} += "${datadir}/${BPN}"

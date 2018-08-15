@@ -1,6 +1,6 @@
 # waf is a build system which is used by samba related project.
 # Obtain details from https://wiki.samba.org/index.php/Waf
-# 
+#
 inherit qemu pythonnative
 
 DEPENDS += "qemu-native libxslt-native docbook-xsl-stylesheets-native python"
@@ -18,7 +18,31 @@ CONFIGUREOPTS = " --prefix=${prefix} \
                   --oldincludedir=${oldincludedir} \
                   --infodir=${infodir} \
                   --mandir=${mandir} \
+                  ${PACKAGECONFIG_CONFARGS} \
                 "
+
+# avoids build breaks when using no-static-libs.inc
+DISABLE_STATIC = ""
+
+def get_waf_parallel_make(d):
+    pm = d.getVar('PARALLEL_MAKE')
+    if pm:
+        # look for '-j' and throw other options (e.g. '-l') away
+        # because they might have different meaning in bjam
+        pm = pm.split()
+        while pm:
+            opt = pm.pop(0)
+            if opt == '-j':
+                v = pm.pop(0)
+            elif opt.startswith('-j'):
+                v = opt[2:].strip()
+            else:
+                continue
+
+            v = min(64, int(v))
+            return '-j' + str(v)
+
+    return ""
 
 # Three methods for waf cross compile:
 # 1. answers:
@@ -44,6 +68,7 @@ CROSS_METHOD ?= "answer"
 do_configure() {
 
     # Prepare the cross-answers file
+    WAF_CROSS_ANSWERS_PATH="${THISDIR}/../../files/waf-cross-answers"
     CROSS_ANSWERS="${B}/cross-answers-${TARGET_ARCH}.txt"
     if [ -e ${CROSS_ANSWERS} ]; then
         rm -f ${CROSS_ANSWERS}
@@ -65,8 +90,6 @@ do_configure() {
                 -L ${STAGING_DIR_HOST} \
                 -E LD_LIBRARY_PATH=${libdir_qemu}:${base_libdir_qemu}"
 
-    export BUILD_SYS=${BUILD_SYS}
-    export HOST_SYS=${HOST_SYS}
     export BUILD_ARCH=${BUILD_ARCH}
     export HOST_ARCH=${HOST_ARCH}
     export STAGING_LIBDIR=${STAGING_LIBDIR}
@@ -86,8 +109,9 @@ do_configure() {
     fi
 }
 
+do_compile[progress] = "outof:^\[\s*(\d+)/\s*(\d+)\]\s+"
 do_compile () {
-    python ./buildtools/bin/waf ${PARALLEL_MAKE}
+    python ./buildtools/bin/waf ${@oe.utils.parallel_make_argument(d, '-j%d', limit=64)}
 }
 
 do_install() {

@@ -65,7 +65,6 @@ import os
 import sys
 import shutil
 import bb
-from   bb import data
 from   bb.fetch2 import FetchMethod
 from   bb.fetch2 import FetchError
 from   bb.fetch2 import runfetchcmd
@@ -108,13 +107,13 @@ class ClearCase(FetchMethod):
         else:
             ud.module = ""
 
-        ud.basecmd = d.getVar("FETCHCMD_ccrc", True) or spawn.find_executable("cleartool") or spawn.find_executable("rcleartool")
+        ud.basecmd = d.getVar("FETCHCMD_ccrc") or spawn.find_executable("cleartool") or spawn.find_executable("rcleartool")
 
-        if data.getVar("SRCREV", d, True) == "INVALID":
+        if d.getVar("SRCREV") == "INVALID":
           raise FetchError("Set a valid SRCREV for the clearcase fetcher in your recipe, e.g. SRCREV = \"/main/LATEST\" or any other label of your choice.")
 
         ud.label = d.getVar("SRCREV", False)
-        ud.customspec = d.getVar("CCASE_CUSTOM_CONFIG_SPEC", True)
+        ud.customspec = d.getVar("CCASE_CUSTOM_CONFIG_SPEC")
 
         ud.server     = "%s://%s%s" % (ud.proto, ud.host, ud.path)
 
@@ -124,7 +123,7 @@ class ClearCase(FetchMethod):
 
         ud.viewname         = "%s-view%s" % (ud.identifier, d.getVar("DATETIME", d, True))
         ud.csname           = "%s-config-spec" % (ud.identifier)
-        ud.ccasedir         = os.path.join(data.getVar("DL_DIR", d, True), ud.type)
+        ud.ccasedir         = os.path.join(d.getVar("DL_DIR"), ud.type)
         ud.viewdir          = os.path.join(ud.ccasedir, ud.viewname)
         ud.configspecfile   = os.path.join(ud.ccasedir, ud.csname)
         ud.localfile        = "%s.tar.gz" % (ud.identifier)
@@ -144,7 +143,7 @@ class ClearCase(FetchMethod):
         self.debug("configspecfile  = %s" % ud.configspecfile)
         self.debug("localfile       = %s" % ud.localfile)
 
-        ud.localfile = os.path.join(data.getVar("DL_DIR", d, True), ud.localfile)
+        ud.localfile = os.path.join(d.getVar("DL_DIR"), ud.localfile)
 
     def _build_ccase_command(self, ud, command):
         """
@@ -202,11 +201,10 @@ class ClearCase(FetchMethod):
 
     def _remove_view(self, ud, d):
         if os.path.exists(ud.viewdir):
-            os.chdir(ud.ccasedir)
             cmd = self._build_ccase_command(ud, 'rmview');
             logger.info("cleaning up [VOB=%s label=%s view=%s]", ud.vob, ud.label, ud.viewname)
             bb.fetch2.check_network_access(d, cmd, ud.url)
-            output = runfetchcmd(cmd, d)
+            output = runfetchcmd(cmd, d, workdir=ud.ccasedir)
             logger.info("rmview output: %s", output)
 
     def need_update(self, ud, d):
@@ -241,11 +239,10 @@ class ClearCase(FetchMethod):
                 raise e
 
         # Set configspec: Setting the configspec effectively fetches the files as defined in the configspec
-        os.chdir(ud.viewdir)
         cmd = self._build_ccase_command(ud, 'setcs');
         logger.info("fetching data [VOB=%s label=%s view=%s]", ud.vob, ud.label, ud.viewname)
         bb.fetch2.check_network_access(d, cmd, ud.url)
-        output = runfetchcmd(cmd, d)
+        output = runfetchcmd(cmd, d, workdir=ud.viewdir)
         logger.info("%s", output)
 
         # Copy the configspec to the viewdir so we have it in our source tarball later

@@ -5,11 +5,13 @@
 SUMMARY = "Self-hosting"
 DESCRIPTION = "Packages required to run the build system"
 PR = "r13"
-LICENSE = "MIT"
 
 inherit packagegroup  distro_features_check
 # rdepends on libx11-dev
 REQUIRED_DISTRO_FEATURES = "x11"
+
+# rdepends on libgl
+REQUIRED_DISTRO_FEATURES += "opengl"
 
 PACKAGES = "\
     packagegroup-self-hosted \
@@ -29,9 +31,6 @@ RDEPENDS_packagegroup-self-hosted = "\
     "
 
 RDEPENDS_packagegroup-self-hosted-host-tools = "\
-    connman \
-    connman-plugin-ethernet \
-    dhcp-client \
     e2fsprogs \
     e2fsprogs-e2fsck \
     e2fsprogs-mke2fs \
@@ -43,7 +42,6 @@ RDEPENDS_packagegroup-self-hosted-host-tools = "\
     mc-fish \
     mc-helpers \
     mc-helpers-perl \
-    mc-helpers-python \
     parted \
     ${PSEUDO} \
     screen \
@@ -125,8 +123,6 @@ RDEPENDS_packagegroup-self-hosted-extended = "\
     groff \
     gzip \
     settings-daemon \
-    hicolor-icon-theme \
-    sato-icon-theme \
     libaio \
     libusb1 \
     libxml2 \
@@ -140,24 +136,25 @@ RDEPENDS_packagegroup-self-hosted-extended = "\
     mtools \
     ncurses \
     ncurses-terminfo-base \
-    neon \
     nfs-utils \
     nfs-utils-client \
     openssl \
+    openssh-scp \
     openssh-sftp-server \
+    openssh-ssh \
     opkg \
     opkg-utils \
     patch \
     perl \
     perl-dev \
+    perl-misc \
     perl-modules \
     perl-pod \
     python \
-    python-compiler \
-    python-git \
-    python-misc \
     python-modules \
-    python-rpm \
+    python3 \
+    python3-modules \
+    python3-git \
     quota \
     readline \
     rpm \
@@ -191,10 +188,10 @@ RDEPENDS_packagegroup-self-hosted-graphics = "\
     libsdl \
     libsdl-dev \
     libx11-dev \
-    gtk-theme-clearlooks \
+    adwaita-icon-theme \
     xdg-utils \
     epiphany \
-    leafpad \
+    l3afpad \
     pcmanfm \
     vte \
     "

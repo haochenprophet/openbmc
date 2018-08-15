@@ -6,26 +6,23 @@ LICENSE = "PHP-3.0"
 
 BBCLASSEXTEND = "native"
 DEPENDS = "zlib bzip2 libxml2 virtual/libiconv php-native lemon-native \
-           openssl libmcrypt"
+           openssl"
 DEPENDS_class-native = "zlib-native libxml2-native"
 
+PHP_MAJOR_VERSION = "${@d.getVar('PV', True).split('.')[0]}"
+
 SRC_URI = "http://php.net/distributions/php-${PV}.tar.bz2 \
-           file://acinclude-xml2-config.patch \
            file://0001-php-don-t-use-broken-wrapper-for-mkdir.patch \
-           file://0001-acinclude-use-pkgconfig-for-libxml2-config.patch \
           "
 
-SRC_URI_append_class-target += " \
+SRC_URI_append_class-target = " \
             file://iconv.patch \
             file://imap-fix-autofoo.patch \
-            file://pear-makefile.patch \
-            file://phar-makefile.patch \
             file://php_exec_native.patch \
             file://php-fpm.conf \
             file://php-fpm-apache.conf \
-            file://configure.patch \
-            file://pthread-check-threads-m4.patch \
-            file://70_mod_php5.conf \
+            file://0001-acinclude.m4-don-t-unset-cache-variables.patch \
+            file://70_mod_php${PHP_MAJOR_VERSION}.conf \
             file://php-fpm.service \
           "
 S = "${WORKDIR}/php-${PV}"
@@ -37,13 +34,12 @@ inherit autotools pkgconfig pythonnative gettext
 SSTATE_SCAN_FILES += "phpize"
 SSTATE_SCAN_FILES += "build-defs.h"
 
-PHP_LIBDIR = "${libdir}/php5"
+PHP_LIBDIR = "${libdir}/php${PHP_MAJOR_VERSION}"
 
 # Common EXTRA_OECONF
 COMMON_EXTRA_OECONF = "--enable-sockets \
                        --enable-pcntl \
                        --enable-shared \
-                       --disable-opcache \
                        --disable-rpath \
                        --with-pic \
                        --libdir=${PHP_LIBDIR} \
@@ -56,21 +52,24 @@ EXTRA_OECONF = "--enable-mbstring \
                 --with-gettext=${STAGING_LIBDIR}/.. \
                 --with-zlib=${STAGING_LIBDIR}/.. \
                 --with-iconv=${STAGING_LIBDIR}/.. \
-                --with-mcrypt=${STAGING_DIR_TARGET}${exec_prefix} \
                 --with-bz2=${STAGING_DIR_TARGET}${exec_prefix} \
-                --with-config-file-path=${sysconfdir}/php/apache2-php5 \
-                ${@base_conditional('SITEINFO_ENDIANNESS', 'le', 'ac_cv_c_bigendian_php=no', 'ac_cv_c_bigendian_php=yes', d)} \
+                --with-config-file-path=${sysconfdir}/php/apache2-php${PHP_MAJOR_VERSION} \
+                ${@oe.utils.conditional('SITEINFO_ENDIANNESS', 'le', 'ac_cv_c_bigendian_php=no', 'ac_cv_c_bigendian_php=yes', d)} \
                 ${@bb.utils.contains('PACKAGECONFIG', 'pam', '', 'ac_cv_lib_pam_pam_start=no', d)} \
                 ${COMMON_EXTRA_OECONF} \
 "
+
+CACHED_CONFIGUREVARS += "ac_cv_func_dlopen=yes ac_cv_lib_dl_dlopen=yes"
+
 EXTRA_OECONF_class-native = " \
                 --with-zlib=${STAGING_LIBDIR_NATIVE}/.. \
                 --without-iconv \
                 ${COMMON_EXTRA_OECONF} \
 "
 
-PACKAGECONFIG ??= "mysql sqlite3 imap \
-                   ${@bb.utils.contains('DISTRO_FEATURES', 'pam', 'pam', '', d)}"
+PACKAGECONFIG ??= "mysql sqlite3 imap opcache \
+                   ${@bb.utils.filter('DISTRO_FEATURES', 'ipv6 pam', d)} \
+"
 PACKAGECONFIG_class-native = ""
 
 PACKAGECONFIG[mysql] = "--with-mysql=${STAGING_DIR_TARGET}${prefix} \
@@ -91,7 +90,8 @@ PACKAGECONFIG[imap] = "--with-imap=${STAGING_DIR_HOST} \
                        --with-imap-ssl=${STAGING_DIR_HOST} \
                        ,--without-imap --without-imap-ssl \
                        ,uw-imap"
-
+PACKAGECONFIG[ipv6] = "--enable-ipv6,--disable-ipv6,"
+PACKAGECONFIG[opcache] = ",--disable-opcache"
 
 export PHP_NATIVE_DIR = "${STAGING_BINDIR_NATIVE}"
 export PHP_PEAR_PHP_BIN = "${STAGING_BINDIR_NATIVE}/php"
@@ -120,8 +120,8 @@ do_install_append_class-native() {
 }
 
 do_install_prepend() {
-    cat aclocal-copy/libtool.m4 aclocal-copy/lt~obsolete.m4 aclocal-copy/ltoptions.m4 \
-        aclocal-copy/ltsugar.m4 aclocal-copy/ltversion.m4 > ${S}/build/libtool.m4
+    cat ${ACLOCALDIR}/libtool.m4 ${ACLOCALDIR}/lt~obsolete.m4 ${ACLOCALDIR}/ltoptions.m4 \
+        ${ACLOCALDIR}/ltsugar.m4 ${ACLOCALDIR}/ltversion.m4 > ${S}/build/libtool.m4
 }
 
 do_install_prepend_class-target() {
@@ -134,9 +134,9 @@ do_install_prepend_class-target() {
 
 # fixme
 do_install_append_class-target() {
-    install -d ${D}/${sysconfdir}/
-    if [ -d ${D}/${STAGING_DIR_NATIVE}/${sysconfdir} ];then
-         mv ${D}/${STAGING_DIR_NATIVE}/${sysconfdir}/* ${D}/${sysconfdir}/
+    install -d ${D}${sysconfdir}/
+    if [ -d ${RECIPE_SYSROOT_NATIVE}${sysconfdir} ];then
+         install -m 0644 ${RECIPE_SYSROOT_NATIVE}${sysconfdir}/pear.conf ${D}${sysconfdir}/
     fi
     rm -rf ${D}/${TMPDIR}
     rm -rf ${D}/.registry
@@ -144,7 +144,7 @@ do_install_append_class-target() {
     rm -rf ${D}/.[a-z]*
     rm -rf ${D}/var
     rm -f  ${D}/${sysconfdir}/php-fpm.conf.default
-    sed -i 's:${STAGING_DIR_NATIVE}::g' ${D}/${sysconfdir}/pear.conf
+    sed -i 's:${STAGING_DIR_NATIVE}::g' ${D}${sysconfdir}/pear.conf
     install -m 0644 ${WORKDIR}/php-fpm.conf ${D}/${sysconfdir}/php-fpm.conf
     install -d ${D}/${sysconfdir}/apache2/conf.d
     install -m 0644 ${WORKDIR}/php-fpm-apache.conf ${D}/${sysconfdir}/apache2/conf.d/php-fpm.conf
@@ -174,13 +174,13 @@ do_install_append_class-target() {
     if ${@bb.utils.contains('PACKAGECONFIG', 'apache2', 'true', 'false', d)}; then
         install -d ${D}${libdir}/apache2/modules
         install -d ${D}${sysconfdir}/apache2/modules.d
-        install -d ${D}${sysconfdir}/php/apache2-php5
-        install -m 755  libs/libphp5.so ${D}${libdir}/apache2/modules
-        install -m 644  ${WORKDIR}/70_mod_php5.conf ${D}${sysconfdir}/apache2/modules.d
-        sed -i s,lib/,${libdir}/, ${D}${sysconfdir}/apache2/modules.d/70_mod_php5.conf
+        install -d ${D}${sysconfdir}/php/apache2-php${PHP_MAJOR_VERSION}
+        install -m 755  libs/libphp${PHP_MAJOR_VERSION}.so ${D}${libdir}/apache2/modules
+        install -m 644  ${WORKDIR}/70_mod_php${PHP_MAJOR_VERSION}.conf ${D}${sysconfdir}/apache2/modules.d
+        sed -i s,lib/,${libdir}/, ${D}${sysconfdir}/apache2/modules.d/70_mod_php${PHP_MAJOR_VERSION}.conf
         cat ${S}/php.ini-production | \
             sed -e 's,extension_dir = \"\./\",extension_dir = \"/usr/lib/extensions\",' \
-            > ${D}${sysconfdir}/php/apache2-php5/php.ini
+            > ${D}${sysconfdir}/php/apache2-php${PHP_MAJOR_VERSION}/php.ini
         rm -f ${D}${sysconfdir}/apache2/httpd.conf*
     fi
 }
@@ -198,13 +198,14 @@ php_sysroot_preprocess () {
 
 MODPHP_PACKAGE = "${@bb.utils.contains('PACKAGECONFIG', 'apache2', '${PN}-modphp', '', d)}"
 
-PACKAGES = "${PN}-dbg ${PN}-cli ${PN}-cgi ${PN}-fpm ${PN}-fpm-apache2 ${PN}-pear ${PN}-phar ${MODPHP_PACKAGE} ${PN}-dev ${PN}-staticdev ${PN}-doc ${PN}"
+PACKAGES = "${PN}-dbg ${PN}-cli ${PN}-cgi ${PN}-fpm ${PN}-fpm-apache2 ${PN}-pear ${PN}-phar ${MODPHP_PACKAGE} ${PN}-dev ${PN}-staticdev ${PN}-doc ${PN}-opcache ${PN}"
 
+RDEPENDS_${PN} += "libgcc"
 RDEPENDS_${PN}-pear = "${PN}"
 RDEPENDS_${PN}-phar = "${PN}-cli"
 RDEPENDS_${PN}-cli = "${PN}"
 RDEPENDS_${PN}-modphp = "${PN} apache2"
-RDEPENDS_${PN}-dev = "${PN}"
+RDEPENDS_${PN}-opcache = "${PN}"
 
 INITSCRIPT_PACKAGES = "${PN}-fpm"
 inherit update-rc.d
@@ -233,6 +234,8 @@ FILES_${PN}-dev = "${includedir}/php ${PHP_LIBDIR}/build ${bindir}/phpize \
                 ${bindir}/php-config ${PHP_LIBDIR}/php/.depdb \
                 ${PHP_LIBDIR}/php/.depdblock ${PHP_LIBDIR}/php/.filemap \
                 ${PHP_LIBDIR}/php/.lock ${PHP_LIBDIR}/php/test"
+FILES_${PN}-staticdev += "${PHP_LIBDIR}/extensions/*/*.a"
+FILES_${PN}-opcache = "${PHP_LIBDIR}/extensions/*/opcache${SOLIBSDEV}"
 FILES_${PN} = "${PHP_LIBDIR}/php"
 FILES_${PN} += "${bindir}"
 
@@ -249,18 +252,6 @@ do_install_append_class-native() {
         PHP_PEAR_SYSCONF_DIR=${sysconfdir}/
 }
 
-SSTATEPOSTINSTFUNCS_append_class-native = " php_sstate_postinst "
-
-php_sstate_postinst() {
-    if [ "${BB_CURRENTTASK}" = "populate_sysroot_setscene" ]
-    then
-        head -n1 ${sysconfdir}/pear.conf > ${sysconfdir}/pear.tmp.conf
-        for p in `tail -n1  ${sysconfdir}/pear.conf | sed -s 's/;/ /g'`; do
-            echo $p | awk -F: 'BEGIN {OFS = ":"; ORS = ";"}{if(NF==3){print $1, length($3)-2*match($3, /^"/), $3} else {print $0}}';
-        done >> ${sysconfdir}/pear.tmp.conf
-        mv -f ${sysconfdir}/pear.tmp.conf ${sysconfdir}/pear.conf
-    fi
-}
 
 # Fails to build with thumb-1 (qemuarm)
 # | {standard input}: Assembler messages:

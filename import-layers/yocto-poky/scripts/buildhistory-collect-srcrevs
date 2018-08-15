@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Collects the recorded SRCREV values from buildhistory and reports on them
 #
@@ -101,9 +101,9 @@ def main():
                 for name, value in srcrevs.items():
                     orig = orig_srcrevs.get(name, orig_srcrev)
                     if options.reportall or value != orig:
-                        all_srcrevs[curdir].append((pn, name, srcrev))
+                        all_srcrevs[curdir].append((pn, name, value))
 
-    for curdir, srcrevs in sorted(all_srcrevs.iteritems()):
+    for curdir, srcrevs in sorted(all_srcrevs.items()):
         if srcrevs:
             print('# %s' % curdir)
             for pn, name, srcrev in srcrevs:

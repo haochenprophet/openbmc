@@ -4,7 +4,7 @@ LICENSE = "LGPLv3"
 SECTION = "firmware"
 
 SRC_URI = " \
-    http://code.coreboot.org/p/seabios/downloads/get/${PN}-${PV}.tar.gz \
+    https://code.coreboot.org/p/seabios/downloads/get/${PN}-${PV}.tar.gz \
     file://hostcc.patch \
     "
 
@@ -22,6 +22,8 @@ DEPENDS = "util-linux-native file-native bison-native flex-native gettext-native
 TUNE_CCARGS = ""
 EXTRA_OEMAKE += "HOSTCC='${BUILD_CC}'"
 EXTRA_OEMAKE += "CROSS_PREFIX=${TARGET_PREFIX}"
+
+COMPATIBLE_HOST = "(i.86|x86_64).*-linux"
 
 do_configure() {
     oe_runmake defconfig

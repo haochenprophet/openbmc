@@ -5,7 +5,7 @@ SRC_URI = "file://init-install-efi.sh"
 
 PR = "r1"
 
-RDEPENDS_${PN} = "parted e2fsprogs-mke2fs dosfstools util-linux-blkid"
+RDEPENDS_${PN} = "parted e2fsprogs-mke2fs dosfstools util-linux-blkid ${VIRTUAL-RUNTIME_base-utils}"
 
 S = "${WORKDIR}"
 
@@ -21,4 +21,4 @@ INHIBIT_DEFAULT_DEPS = "1"
 
 FILES_${PN} = " /install-efi.sh "
 
-COMPATIBLE_HOST = "(i.86|x86_64).*-linux"
+COMPATIBLE_HOST = "(i.86.*|x86_64.*|aarch64.*)-linux"

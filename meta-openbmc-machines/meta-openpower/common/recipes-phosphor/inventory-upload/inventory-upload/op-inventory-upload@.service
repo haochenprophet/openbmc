@@ -2,14 +2,15 @@
 Description=Inventory Upload
 Wants=obmc-host-start-pre@%i.target
 Before=obmc-host-start-pre@%i.target
-Conflicts=obmc-chassis-stop@%i.target
+Conflicts=obmc-host-stop@%i.target
 
 [Service]
 Restart=no
 Type=oneshot
 RemainAfterExit=yes
-ExecStart={sbindir}/inventory_upload.py
+ExecStart=/usr/bin/env inventory_upload.py
+SyslogIdentifier=inventory_upload.py
 Environment="PYTHONUNBUFFERED=1"
 
 [Install]
-WantedBy=obmc-chassis-start@%i.target
+WantedBy=obmc-host-start@%i.target

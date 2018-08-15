@@ -4,7 +4,9 @@ DESCRIPTION = "Extract data from Excel spreadsheets (.xls and .xlsx,\
 Strong support for Excel dates. Unicode-aware."
 HOMEPAGE = "http://www.python-excel.org/"
 LICENSE = "BSD"
-LIC_FILES_CHKSUM = "file://xlrd/licences.py;md5=b59dace5cc1db604c4219100b0422811"
+LIC_FILES_CHKSUM = "file://PKG-INFO;md5=08bd814936237b6e1355e6370b24b2c1"
 
-SRC_URI[md5sum] = "911839f534d29fe04525ef8cd88fe865"
-SRC_URI[sha256sum] = "8e8d3359f39541a6ff937f4030db54864836a06e42988c452db5b6b86d29ea72"
+SRC_URI[md5sum] = "b85c9916ac755cad489a9005f5a0d390"
+SRC_URI[sha256sum] = "8a21885513e6d915fe33a8ee5fdfa675433b61405ba13e2a69e62ee36828d7e2"
+
+RDEPENDS_${PN} += "${PYTHON_PN}-compression ${PYTHON_PN}-io ${PYTHON_PN}-pprint ${PYTHON_PN}-shell"

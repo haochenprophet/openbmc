@@ -52,16 +52,23 @@ def get_git_pkgv(d, use_tags):
     import bb
     from pipes import quote
 
-    src_uri = d.getVar('SRC_URI', 1).split()
+    src_uri = d.getVar('SRC_URI').split()
     fetcher = bb.fetch2.Fetch(src_uri, d)
     ud = fetcher.ud
 
     #
     # If SRCREV_FORMAT is set respect it for tags
     #
-    format = d.getVar('SRCREV_FORMAT', True)
+    format = d.getVar('SRCREV_FORMAT')
     if not format:
-        format = 'default'
+        names = []
+        for url in ud.values():
+            if url.type == 'git' or url.type == 'gitsm':
+                names.extend(url.revisions.keys())
+        if len(names) > 0:
+            format = '_'.join(names)
+        else:
+            format = 'default'
 
     found = False
     for url in ud.values():
@@ -87,11 +94,13 @@ def get_git_pkgv(d, use_tags):
 
                     if commits != "":
                         oe.path.remove(rev_file, recurse=False)
-                        open(rev_file, "w").write("%d\n" % int(commits))
+                        with open(rev_file, "w") as f:
+                            f.write("%d\n" % int(commits))
                     else:
                         commits = "0"
                 else:
-                    commits = open(rev_file, "r").readline(128).strip()
+                    with open(rev_file, "r") as f:
+                        commits = f.readline(128).strip()
 
                 if use_tags:
                     try:
@@ -101,9 +110,9 @@ def get_git_pkgv(d, use_tags):
                             d, quiet=True).strip()
                         ver = gitpkgv_drop_tag_prefix(output)
                     except Exception:
-                        ver = "0.0-%s-g%s" % (commits, rev[:7])
+                        ver = "0.0-%s-g%s" % (commits, vars['rev'][:7])
                 else:
-                    ver = "%s+%s" % (commits, rev[:7])
+                    ver = "%s+%s" % (commits, vars['rev'][:7])
 
                 format = format.replace(name, ver)
 

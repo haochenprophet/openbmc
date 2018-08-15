@@ -57,12 +57,11 @@ USE_ALTERNATIVES_FOR = " \
 	strings \
 	strip \
 "
-USE_ALTERNATIVES_FOR_remove_mips = "ld.gold dwp"
 
 python do_package_prepend() {
-    make_alts = d.getVar("USE_ALTERNATIVES_FOR", True) or ""
-    prefix = d.getVar("TARGET_PREFIX", True)
-    bindir = d.getVar("bindir", True)
+    make_alts = d.getVar("USE_ALTERNATIVES_FOR") or ""
+    prefix = d.getVar("TARGET_PREFIX")
+    bindir = d.getVar("bindir")
     for alt in make_alts.split():
         d.setVarFlag('ALTERNATIVE_TARGET', alt, bindir + "/" + prefix + alt)
         d.setVarFlag('ALTERNATIVE_LINK_NAME', alt, bindir + "/" + alt)
@@ -72,13 +71,14 @@ B = "${S}/build.${HOST_SYS}.${TARGET_SYS}"
 
 EXTRA_OECONF = "--program-prefix=${TARGET_PREFIX} \
                 --disable-werror \
+                --enable-deterministic-archives \
                 --enable-plugins \
                 ${LDGOLD} \
                 ${@bb.utils.contains('DISTRO_FEATURES', 'multiarch', '--enable-64-bit-bfd', '', d)}"
 
 LDGOLD_class-native = ""
 LDGOLD_class-crosssdk = ""
-LDGOLD ?= "${@bb.utils.contains('DISTRO_FEATURES', 'ld-is-gold', '--enable-gold=default --enable-threads', '--enable-gold --enable-ld=default', d)}"
+LDGOLD ?= "${@bb.utils.contains('DISTRO_FEATURES', 'ld-is-gold', '--enable-gold=default --enable-threads', '--enable-gold --enable-ld=default --enable-threads', d)}"
 
 # This is necessary due to a bug in the binutils Makefiles
 # EXTRA_OEMAKE = "configure-build-libiberty all"

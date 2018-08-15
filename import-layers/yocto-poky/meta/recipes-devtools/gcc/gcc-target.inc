@@ -4,11 +4,18 @@ require gcc-configure-common.inc
 EXTRA_OECONF_PATHS = "\
     --with-sysroot=/ \
     --with-build-sysroot=${STAGING_DIR_TARGET} \
-    --with-native-system-header-dir=${STAGING_DIR_TARGET}${target_includedir} \
     --with-gxx-include-dir=${includedir}/c++/${BINV} \
 "
 
 EXTRA_OECONF_append_linuxstdbase = " --enable-clocale=gnu"
+
+# ARMv6+ adds atomic instructions that affect the ABI in libraries built
+# with TUNE_CCARGS in gcc-runtime.  Make the compiler default to a
+# compatible architecture.  armv6 and armv7a cover the minimum tune
+# features used in OE.
+EXTRA_OECONF_append_armv6 = " --with-arch=armv6"
+EXTRA_OECONF_append_armv7a = " --with-arch=armv7-a"
+EXTRA_OECONF_append_armv7ve = " --with-arch=armv7-a"
 
 # libcc1 requres gcc_cv_objdump when cross build, but gcc_cv_objdump is
 # set in subdir gcc, so subdir libcc1 can't use it, export it here to
@@ -32,7 +39,7 @@ PACKAGES = "\
 FILES_${PN} = "\
     ${bindir}/${TARGET_PREFIX}gcc* \
     ${libexecdir}/gcc/${TARGET_SYS}/${BINV}/collect2* \
-    ${libexecdir}/gcc/${TARGET_SYS}/${BINV}/cc* \
+    ${libexecdir}/gcc/${TARGET_SYS}/${BINV}/cc1plus \
     ${libexecdir}/gcc/${TARGET_SYS}/${BINV}/lto* \
     ${libexecdir}/gcc/${TARGET_SYS}/${BINV}/lib*${SOLIBS} \
     ${libexecdir}/gcc/${TARGET_SYS}/${BINV}/liblto*${SOLIBSDEV} \
@@ -43,6 +50,11 @@ FILES_${PN} = "\
     ${gcclibdir}/${TARGET_SYS}/${BINV}/include-fixed \
 "
 INSANE_SKIP_${PN} += "dev-so"
+RRECOMMENDS_${PN} += "\
+    libssp \
+    libssp-dev \
+"
+RDEPENDS_${PN} += "cpp"
 
 FILES_${PN}-dev = "\
     ${gcclibdir}/${TARGET_SYS}/${BINV}/lib*${SOLIBSDEV} \
@@ -70,9 +82,18 @@ FILES_g77-symlinks = "\
     ${bindir}/g77 \
     ${bindir}/f77 \
 "
+RRECOMMENDS_g77 = "\
+    libg2c \
+    libg2c-dev \
+"
+
 FILES_gfortran = "\
     ${bindir}/${TARGET_PREFIX}gfortran \
     ${libexecdir}/gcc/${TARGET_SYS}/${BINV}/f951 \
+"
+RRECOMMENDS_gfortran = "\
+    libquadmath \
+    libquadmath-dev \
 "
 FILES_gfortran-symlinks = "\
     ${bindir}/gfortran \
@@ -98,6 +119,12 @@ FILES_g++ = "\
 FILES_g++-symlinks = "\
     ${bindir}/c++ \
     ${bindir}/g++ \
+"
+RRECOMMENDS_g++ = "\
+    libstdc++ \
+    libstdc++-dev \
+    libatomic \
+    libatomic-dev \
 "
 
 FILES_${PN}-doc = "\
@@ -161,6 +188,8 @@ do_install () {
 	ln -sf ${TARGET_PREFIX}g++ g++
 	ln -sf ${TARGET_PREFIX}gcc gcc
 	ln -sf ${TARGET_PREFIX}cpp cpp
+	ln -sf ${TARGET_PREFIX}gcov gcov
+	ln -sf ${TARGET_PREFIX}gcov-tool gcov-tool
 	install -d ${D}${base_libdir}
 	ln -sf ${bindir}/${TARGET_PREFIX}cpp ${D}${base_libdir}/cpp
 	ln -sf g++ c++
@@ -205,6 +234,4 @@ do_install_append () {
 # and builds track file dependencies (e.g. perl and its makedepends code).
 # For determinism we don't install this ever and rely on the copy from gcc-cross.
 # [YOCTO #7287]
-sysroot_stage_dirs_append () {
-	rm -rf $to${libdir}/gcc
-}
+SYSROOT_DIRS_BLACKLIST += "${libdir}/gcc"

@@ -52,7 +52,7 @@
        <link linkend='var-MIRRORS'>M</link>
 <!--               <link linkend='var-glossary-n'>N</link> -->
        <link linkend='var-OVERRIDES'>O</link>
-       <link linkend='var-PACKAGES'>P</link>
+       <link linkend='var-P4DIR'>P</link>
 <!--       <link linkend='var-QMAKE_PROFILES'>Q</link> -->
        <link linkend='var-RDEPENDS'>R</link>
        <link linkend='var-SECTION'>S</link>
@@ -78,7 +78,7 @@
                 </para>
 
                 <para>
-                    In OpenEmbedded Core, <filename>ASSUME_PROVIDED</filename>
+                    In OpenEmbedded-Core, <filename>ASSUME_PROVIDED</filename>
                     mostly specifies native tools that should not be built.
                     An example is <filename>git-native</filename>, which
                     when specified allows for the Git binary from the host to
@@ -716,7 +716,7 @@
             </glossdef>
         </glossentry>
 
-        <glossentry id='var-BB_SETSCENE_VERIFY_FUNCTION'><glossterm>BB_SETSCENE_VERIFY_FUNCTION</glossterm>
+        <glossentry id='var-BB_SETSCENE_VERIFY_FUNCTION2'><glossterm>BB_SETSCENE_VERIFY_FUNCTION2</glossterm>
             <glossdef>
                 <para>
                     Specifies a function to call that verifies the list of
@@ -964,7 +964,7 @@
                     Allows you to extend a recipe so that it builds variants
                     of the software.
                     Some examples of these variants for recipes from the
-                    OpenEmbedded Core metadata are "natives" such as
+                    OpenEmbedded-Core metadata are "natives" such as
                     <filename>quilt-native</filename>, which is a copy of
                     Quilt built to run on the build system; "crosses" such
                     as <filename>gcc-cross</filename>, which is a compiler
@@ -980,12 +980,35 @@
                     amount of code, it usually is as simple as adding the
                     variable to your recipe.
                     Here are two examples.
-                    The "native" variants are from the OpenEmbedded Core
+                    The "native" variants are from the OpenEmbedded-Core
                     metadata:
                     <literallayout class='monospaced'>
      BBCLASSEXTEND =+ "native nativesdk"
      BBCLASSEXTEND =+ "multilib:<replaceable>multilib_name</replaceable>"
                     </literallayout>
+                    <note>
+                        <para>
+                        Internally, the <filename>BBCLASSEXTEND</filename>
+                        mechanism generates recipe variants by rewriting
+                        variable values and applying overrides such as
+                        <filename>_class-native</filename>.
+                        For example, to generate a native version of a recipe,
+                        a
+                        <link linkend='var-DEPENDS'><filename>DEPENDS</filename></link>
+                        on "foo" is rewritten to a <filename>DEPENDS</filename>
+                        on "foo-native".
+                        </para>
+
+                        <para>
+                        Even when using <filename>BBCLASSEXTEND</filename>, the
+                        recipe is only parsed once.
+                        Parsing once adds some limitations.
+                        For example, it is not possible to
+                        include a different file depending on the variant,
+                        since <filename>include</filename> statements are
+                        processed when the recipe is parsed.
+                        </para>
+                    </note>
                 </para>
              </glossdef>
         </glossentry>
@@ -994,7 +1017,7 @@
             <glossdef>
                 <para>
                     Sets the BitBake debug output level to a specific value
-                    as incremented by the <filename>-d</filename> command line
+                    as incremented by the <filename>-D</filename> command line
                     option.
                     <note>
                         You must set this variable in the external environment
@@ -1120,8 +1143,6 @@
             <glossdef>
                 <para>
                     Sets the base location where layers are stored.
-                    By default, this location is set to
-                    <filename>${COREBASE}</filename>.
                     This setting is used in conjunction with
                     <filename>bitbake-layers layerindex-fetch</filename> and
                     tells <filename>bitbake-layers</filename> where to place
@@ -1516,24 +1537,6 @@
             </glossdef>
         </glossentry>
 
-        <glossentry id='var-FILESDIR'><glossterm>FILESDIR</glossterm>
-            <glossdef>
-                <para>
-                    Specifies directories BitBake uses when searching for
-                    patches and files.
-                    The "local" fetcher module uses these directories when
-                    handling <filename>file://</filename> URLs if the file
-                    was not found using
-                    <link linkend='var-FILESPATH'><filename>FILESPATH</filename></link>.
-                    <note>
-                        The <filename>FILESDIR</filename> variable is
-                        deprecated and you should use
-                        <filename>FILESPATH</filename> in all new code.
-                    </note>
-                </para>
-            </glossdef>
-        </glossentry>
-
         <glossentry id='var-FILESPATH'><glossterm>FILESPATH</glossterm>
             <glossdef>
                 <para>
@@ -1591,9 +1594,19 @@
         <glossentry id='var-INHERIT'><glossterm>INHERIT</glossterm>
             <glossdef>
                 <para>
-                    Causes the named class to be inherited at
-                    this point during parsing.
-                    The variable is only valid in configuration files.
+                    Causes the named class or classes to be inherited globally.
+                    Anonymous functions in the class or classes
+                    are not executed for the
+                    base configuration and in each individual recipe.
+                    The OpenEmbedded build system ignores changes to
+                    <filename>INHERIT</filename> in individual recipes.
+                </para>
+
+                <para>
+                    For more information on <filename>INHERIT</filename>, see
+                    the
+                    "<link linkend="inherit-configuration-directive"><filename>INHERIT</filename> Configuration Directive</link>"
+                    section.
                 </para>
             </glossdef>
         </glossentry>
@@ -1631,6 +1644,17 @@
             <glossdef>
                 <para>When used inside the <filename>layer.conf</filename> configuration
                     file, this variable provides the path of the current layer.
+                    This variable is not available outside of <filename>layer.conf</filename>
+                    and references are expanded immediately when parsing of the file completes.</para>
+            </glossdef>
+        </glossentry>
+
+        <glossentry id='var-LAYERDIR_RE'><glossterm>LAYERDIR_RE</glossterm>
+            <glossdef>
+                <para>When used inside the <filename>layer.conf</filename> configuration
+                    file, this variable provides the path of the current layer,
+                    escaped for use in a regular expression
+                    (<link linkend='var-BBFILE_PATTERN'><filename>BBFILE_PATTERN</filename></link>).
                     This variable is not available outside of <filename>layer.conf</filename>
                     and references are expanded immediately when parsing of the file completes.</para>
             </glossdef>
@@ -1736,6 +1760,15 @@
     </glossdiv>
 
     <glossdiv id='var-glossary-p'><title>P</title>
+
+        <glossentry id='var-P4DIR'><glossterm>P4DIR</glossterm>
+            <glossdef>
+                <para>
+                    The directory in which a local copy of a Perforce depot
+                    is stored when it is fetched.
+                </para>
+            </glossdef>
+        </glossentry>
 
         <glossentry id='var-PACKAGES'><glossterm>PACKAGES</glossterm>
             <glossdef>
@@ -1868,7 +1901,7 @@
                     Here are two examples:
                     <literallayout class='monospaced'>
      PREFERRED_VERSION_python = "2.7.3"
-     PREFERRED_VERSION_linux-yocto = "3.10%"
+     PREFERRED_VERSION_linux-yocto = "4.12%"
                     </literallayout>
                 </para>
             </glossdef>
@@ -1932,6 +1965,27 @@
                     </literallayout>
                     The <filename>PROVIDES</filename> statement results in
                     the "libav" recipe also being known as "libpostproc".
+                </para>
+
+                <para>
+                    In addition to providing recipes under alternate names,
+                    the <filename>PROVIDES</filename> mechanism is also used
+                    to implement virtual targets.
+                    A virtual target is a name that corresponds to some
+                    particular functionality (e.g. a Linux kernel).
+                    Recipes that provide the functionality in question list the
+                    virtual target in <filename>PROVIDES</filename>.
+                    Recipes that depend on the functionality in question can
+                    include the virtual target in
+                    <link linkend='var-DEPENDS'><filename>DEPENDS</filename></link>
+                    to leave the choice of provider open.
+                </para>
+
+                <para>
+                    Conventionally, virtual targets have names on the form
+                    "virtual/function" (e.g. "virtual/kernel").
+                    The slash is simply part of the name and has no
+                    syntactical significance.
                 </para>
             </glossdef>
         </glossentry>
@@ -2031,6 +2085,16 @@
                     For information on build-time dependencies, see the
                     <link linkend='var-DEPENDS'><filename>DEPENDS</filename></link>
                     variable.
+                </para>
+            </glossdef>
+        </glossentry>
+
+        <glossentry id='var-REPODIR'><glossterm>REPODIR</glossterm>
+            <glossdef>
+                <para>
+                    The directory in which a local copy of a
+                    <filename>google-repo</filename> directory is stored
+                    when it is synced.
                 </para>
             </glossdef>
         </glossentry>

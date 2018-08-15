@@ -6,7 +6,7 @@ LIC_FILES_CHKSUM = "file://LICENSE.txt;md5=a6a4ddbb7cd2999f6827ee143f6fcd97"
 
 DEPENDS = "openssl"
 
-SRC_URI = "ftp://ftp.cac.washington.edu/imap/imap-${PV}.tar.gz \
+SRC_URI = "https://fossies.org/linux/misc/old/imap-${PV}.tar.gz \
            file://quote_cctype.patch \
            file://imap-2007e-shared.patch \
            file://imap-2007f-format-security.patch \
@@ -17,10 +17,10 @@ SRC_URI[sha256sum] = "53e15a2b5c1bc80161d42e9f69792a3fa18332b7b771910131004eb520
 
 S = "${WORKDIR}/imap-${PV}"
 
-PACKAGECONFIG ??= "${@bb.utils.contains('DISTRO_FEATURES', 'pam', 'pam', '', d)}"
+PACKAGECONFIG ??= "${@bb.utils.filter('DISTRO_FEATURES', 'pam', d)}"
 PACKAGECONFIG[pam] = ",,libpam"
 
-EXTRA_OEMAKE = "CC='${CC}'"
+EXTRA_OEMAKE = "CC='${CC}' ARRC='${AR} -rc' RANLIB='${RANLIB}'"
 
 HEADERS = "src/c-client/*.h src/osdep/unix/*.h c-client/auths.c c-client/linkage.c c-client/linkage.h c-client/osdep.h"
 

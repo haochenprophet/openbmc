@@ -1,5 +1,5 @@
-RDEPENDS_${PN}_append = " \
+RDEPENDS_${PN}_append_df-openpower = " \
     pflash \
     gard \
-    pdbg \
+    fsidbg \
     "

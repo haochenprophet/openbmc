@@ -1,4 +1,3 @@
-include conf/distro/include/package_regex.inc
 include conf/distro/include/upstream_tracking.inc
 include conf/distro/include/distro_alias.inc
 include conf/distro/include/maintainers.inc
@@ -26,75 +25,70 @@ addtask distrodata_np
 do_distrodata_np[nostamp] = "1"
 python do_distrodata_np() {
         localdata = bb.data.createCopy(d)
-        pn = d.getVar("PN", True)
+        pn = d.getVar("PN")
         bb.note("Package Name: %s" % pn)
 
         import oe.distro_check as dist_check
-        tmpdir = d.getVar('TMPDIR', True)
+        tmpdir = d.getVar('TMPDIR')
         distro_check_dir = os.path.join(tmpdir, "distro_check")
-        datetime = localdata.getVar('DATETIME', True)
+        datetime = localdata.getVar('DATETIME')
         dist_check.update_distro_data(distro_check_dir, datetime, localdata)
 
         if pn.find("-native") != -1:
             pnstripped = pn.split("-native")
             bb.note("Native Split: %s" % pnstripped)
-            localdata.setVar('OVERRIDES', "pn-" + pnstripped[0] + ":" + d.getVar('OVERRIDES', True))
-            bb.data.update_data(localdata)
+            localdata.setVar('OVERRIDES', "pn-" + pnstripped[0] + ":" + d.getVar('OVERRIDES'))
 
         if pn.find("-cross") != -1:
             pnstripped = pn.split("-cross")
             bb.note("cross Split: %s" % pnstripped)
-            localdata.setVar('OVERRIDES', "pn-" + pnstripped[0] + ":" + d.getVar('OVERRIDES', True))
-            bb.data.update_data(localdata)
+            localdata.setVar('OVERRIDES', "pn-" + pnstripped[0] + ":" + d.getVar('OVERRIDES'))
 
         if pn.find("-crosssdk") != -1:
             pnstripped = pn.split("-crosssdk")
             bb.note("cross Split: %s" % pnstripped)
-            localdata.setVar('OVERRIDES', "pn-" + pnstripped[0] + ":" + d.getVar('OVERRIDES', True))
-            bb.data.update_data(localdata)
+            localdata.setVar('OVERRIDES', "pn-" + pnstripped[0] + ":" + d.getVar('OVERRIDES'))
 
         if pn.startswith("nativesdk-"):
             pnstripped = pn.replace("nativesdk-", "")
             bb.note("NativeSDK Split: %s" % pnstripped)
-            localdata.setVar('OVERRIDES', "pn-" + pnstripped + ":" + d.getVar('OVERRIDES', True))
-            bb.data.update_data(localdata)
+            localdata.setVar('OVERRIDES', "pn-" + pnstripped + ":" + d.getVar('OVERRIDES'))
 
 
         if pn.find("-initial") != -1:
             pnstripped = pn.split("-initial")
             bb.note("initial Split: %s" % pnstripped)
-            localdata.setVar('OVERRIDES', "pn-" + pnstripped[0] + ":" + d.getVar('OVERRIDES', True))
-            bb.data.update_data(localdata)
+            localdata.setVar('OVERRIDES', "pn-" + pnstripped[0] + ":" + d.getVar('OVERRIDES'))
 
         """generate package information from .bb file"""
-        pname = localdata.getVar('PN', True)
-        pcurver = localdata.getVar('PV', True)
-        pdesc = localdata.getVar('DESCRIPTION', True)
+        pname = localdata.getVar('PN')
+        pcurver = localdata.getVar('PV')
+        pdesc = localdata.getVar('DESCRIPTION')
         if pdesc is not None:
                 pdesc = pdesc.replace(',','')
                 pdesc = pdesc.replace('\n','')
 
-        pgrp = localdata.getVar('SECTION', True)
-        plicense = localdata.getVar('LICENSE', True).replace(',','_')
+        pgrp = localdata.getVar('SECTION')
+        plicense = localdata.getVar('LICENSE').replace(',','_')
 
-        rstatus = localdata.getVar('RECIPE_COLOR', True)
+        rstatus = localdata.getVar('RECIPE_COLOR')
         if rstatus is not None:
                 rstatus = rstatus.replace(',','')
 
-        pupver = localdata.getVar('RECIPE_UPSTREAM_VERSION', True)
+        pupver = localdata.getVar('RECIPE_UPSTREAM_VERSION')
         if pcurver == pupver:
                 vermatch="1"
         else:
                 vermatch="0"
-        noupdate_reason = localdata.getVar('RECIPE_NO_UPDATE_REASON', True)
+        noupdate_reason = localdata.getVar('RECIPE_NO_UPDATE_REASON')
         if noupdate_reason is None:
                 noupdate="0"
         else:
                 noupdate="1"
                 noupdate_reason = noupdate_reason.replace(',','')
 
-        maintainer = localdata.getVar('RECIPE_MAINTAINER', True)
-        rlrd = localdata.getVar('RECIPE_UPSTREAM_DATE', True)
+        maintainer = localdata.getVar('RECIPE_MAINTAINER')
+        rlrd = localdata.getVar('RECIPE_UPSTREAM_DATE')
         result = dist_check.compare_in_distro_packages_list(distro_check_dir, localdata)
 
         bb.note("DISTRO: %s,%s,%s,%s,%s,%s,%s,%s,%s\n" % \
@@ -110,80 +104,75 @@ addtask distrodata
 do_distrodata[nostamp] = "1"
 python do_distrodata() {
         import csv
-        logpath = d.getVar('LOG_DIR', True)
+        logpath = d.getVar('LOG_DIR')
         bb.utils.mkdirhier(logpath)
         logfile = os.path.join(logpath, "distrodata.csv")
 
         import oe.distro_check as dist_check
         localdata = bb.data.createCopy(d)
-        tmpdir = d.getVar('TMPDIR', True)
+        tmpdir = d.getVar('TMPDIR')
         distro_check_dir = os.path.join(tmpdir, "distro_check")
-        datetime = localdata.getVar('DATETIME', True)
+        datetime = localdata.getVar('DATETIME')
         dist_check.update_distro_data(distro_check_dir, datetime, localdata)
 
-        pn = d.getVar("PN", True)
+        pn = d.getVar("PN")
         bb.note("Package Name: %s" % pn)
 
         if pn.find("-native") != -1:
             pnstripped = pn.split("-native")
             bb.note("Native Split: %s" % pnstripped)
-            localdata.setVar('OVERRIDES', "pn-" + pnstripped[0] + ":" + d.getVar('OVERRIDES', True))
-            bb.data.update_data(localdata)
+            localdata.setVar('OVERRIDES', "pn-" + pnstripped[0] + ":" + d.getVar('OVERRIDES'))
 
         if pn.startswith("nativesdk-"):
             pnstripped = pn.replace("nativesdk-", "")
             bb.note("NativeSDK Split: %s" % pnstripped)
-            localdata.setVar('OVERRIDES', "pn-" + pnstripped + ":" + d.getVar('OVERRIDES', True))
-            bb.data.update_data(localdata)
+            localdata.setVar('OVERRIDES', "pn-" + pnstripped + ":" + d.getVar('OVERRIDES'))
 
         if pn.find("-cross") != -1:
             pnstripped = pn.split("-cross")
             bb.note("cross Split: %s" % pnstripped)
-            localdata.setVar('OVERRIDES', "pn-" + pnstripped[0] + ":" + d.getVar('OVERRIDES', True))
-            bb.data.update_data(localdata)
+            localdata.setVar('OVERRIDES', "pn-" + pnstripped[0] + ":" + d.getVar('OVERRIDES'))
 
         if pn.find("-crosssdk") != -1:
             pnstripped = pn.split("-crosssdk")
             bb.note("cross Split: %s" % pnstripped)
-            localdata.setVar('OVERRIDES', "pn-" + pnstripped[0] + ":" + d.getVar('OVERRIDES', True))
-            bb.data.update_data(localdata)
+            localdata.setVar('OVERRIDES', "pn-" + pnstripped[0] + ":" + d.getVar('OVERRIDES'))
 
         if pn.find("-initial") != -1:
             pnstripped = pn.split("-initial")
             bb.note("initial Split: %s" % pnstripped)
-            localdata.setVar('OVERRIDES', "pn-" + pnstripped[0] + ":" + d.getVar('OVERRIDES', True))
-            bb.data.update_data(localdata)
+            localdata.setVar('OVERRIDES', "pn-" + pnstripped[0] + ":" + d.getVar('OVERRIDES'))
 
         """generate package information from .bb file"""
-        pname = localdata.getVar('PN', True)
-        pcurver = localdata.getVar('PV', True)
-        pdesc = localdata.getVar('DESCRIPTION', True)
+        pname = localdata.getVar('PN')
+        pcurver = localdata.getVar('PV')
+        pdesc = localdata.getVar('DESCRIPTION')
         if pdesc is not None:
                 pdesc = pdesc.replace(',','')
                 pdesc = pdesc.replace('\n','')
 
-        pgrp = localdata.getVar('SECTION', True)
-        plicense = localdata.getVar('LICENSE', True).replace(',','_')
+        pgrp = localdata.getVar('SECTION')
+        plicense = localdata.getVar('LICENSE').replace(',','_')
 
-        rstatus = localdata.getVar('RECIPE_COLOR', True)
+        rstatus = localdata.getVar('RECIPE_COLOR')
         if rstatus is not None:
                 rstatus = rstatus.replace(',','')
 
-        pupver = localdata.getVar('RECIPE_UPSTREAM_VERSION', True)
+        pupver = localdata.getVar('RECIPE_UPSTREAM_VERSION')
         if pcurver == pupver:
                 vermatch="1"
         else:
                 vermatch="0"
 
-        noupdate_reason = localdata.getVar('RECIPE_NO_UPDATE_REASON', True)
+        noupdate_reason = localdata.getVar('RECIPE_NO_UPDATE_REASON')
         if noupdate_reason is None:
                 noupdate="0"
         else:
                 noupdate="1"
                 noupdate_reason = noupdate_reason.replace(',','')
 
-        maintainer = localdata.getVar('RECIPE_MAINTAINER', True)
-        rlrd = localdata.getVar('RECIPE_UPSTREAM_DATE', True)
+        maintainer = localdata.getVar('RECIPE_MAINTAINER')
+        rlrd = localdata.getVar('RECIPE_UPSTREAM_DATE')
         # do the comparison
         result = dist_check.compare_in_distro_packages_list(distro_check_dir, localdata)
 
@@ -198,14 +187,6 @@ python do_distrodata() {
         bb.utils.unlockfile(lf)
 }
 do_distrodata[vardepsexclude] = "DATETIME"
-
-addtask distrodataall after do_distrodata
-do_distrodataall[recrdeptask] = "do_distrodataall do_distrodata"
-do_distrodataall[recideptask] = "do_${BB_DEFAULT_TASK}"
-do_distrodataall[nostamp] = "1"
-do_distrodataall() {
-        :
-}
 
 addhandler checkpkg_eventhandler
 checkpkg_eventhandler[eventmask] = "bb.event.BuildStarted bb.event.BuildCompleted"
@@ -272,90 +253,81 @@ python do_checkpkg() {
         from bb.utils import vercmp_string
         from bb.fetch2 import FetchError, NoMethodError, decodeurl
 
-        """first check whether a uri is provided"""
-        src_uri = (d.getVar('SRC_URI', True) or '').split()
-        if src_uri:
-            uri_type, _, _, _, _, _ = decodeurl(src_uri[0])
-        else:
-            uri_type = "none"
+        def get_upstream_version_and_status():
+
+            # set if the upstream check fails reliably, e.g. absent git tags, or weird version format used on our or on upstream side.
+            upstream_version_unknown = localdata.getVar('UPSTREAM_VERSION_UNKNOWN')
+            # set if the upstream check cannot be reliably performed due to transient network failures, or server behaving weirdly. 
+            # This one should be used sparingly, as it completely excludes a recipe from upstream checking.
+            upstream_check_unreliable = localdata.getVar('UPSTREAM_CHECK_UNRELIABLE')
+
+            if upstream_check_unreliable == "1":
+                return "N/A", "CHECK_IS_UNRELIABLE"
+
+            uv = oe.recipeutils.get_recipe_upstream_version(localdata)
+            pupver = uv['version'] if uv['version'] else "N/A"
+            pversion = uv['current_version']
+            revision = uv['revision'] if uv['revision'] else "N/A"
+
+            if pupver == "N/A":
+                pstatus = "UNKNOWN" if upstream_version_unknown else "UNKNOWN_BROKEN"
+            else:
+                cmp = vercmp_string(pversion, pupver)
+                if cmp == -1:
+                    pstatus = "UPDATE" if not upstream_version_unknown else "KNOWN_BROKEN"
+                elif cmp == 0:
+                    pstatus = "MATCH" if not upstream_version_unknown else "KNOWN_BROKEN"
+                else:
+                    pstatus = "UNKNOWN" if upstream_version_unknown else "UNKNOWN_BROKEN"
+
+            return pversion, pupver, pstatus, revision
+
 
         """initialize log files."""
-        logpath = d.getVar('LOG_DIR', True)
+        logpath = d.getVar('LOG_DIR')
         bb.utils.mkdirhier(logpath)
         logfile = os.path.join(logpath, "checkpkg.csv")
 
         """generate package information from .bb file"""
-        pname = d.getVar('PN', True)
+        pname = d.getVar('PN')
 
         if pname.find("-native") != -1:
-            if d.getVar('BBCLASSEXTEND', True):
+            if d.getVar('BBCLASSEXTEND'):
                     return
             pnstripped = pname.split("-native")
             bb.note("Native Split: %s" % pnstripped)
-            localdata.setVar('OVERRIDES', "pn-" + pnstripped[0] + ":" + d.getVar('OVERRIDES', True))
-            bb.data.update_data(localdata)
+            localdata.setVar('OVERRIDES', "pn-" + pnstripped[0] + ":" + d.getVar('OVERRIDES'))
 
         if pname.startswith("nativesdk-"):
-            if d.getVar('BBCLASSEXTEND', True):
+            if d.getVar('BBCLASSEXTEND'):
                     return
             pnstripped = pname.replace("nativesdk-", "")
             bb.note("NativeSDK Split: %s" % pnstripped)
-            localdata.setVar('OVERRIDES', "pn-" + pnstripped + ":" + d.getVar('OVERRIDES', True))
-            bb.data.update_data(localdata)
+            localdata.setVar('OVERRIDES', "pn-" + pnstripped + ":" + d.getVar('OVERRIDES'))
 
         if pname.find("-cross") != -1:
             pnstripped = pname.split("-cross")
             bb.note("cross Split: %s" % pnstripped)
-            localdata.setVar('OVERRIDES', "pn-" + pnstripped[0] + ":" + d.getVar('OVERRIDES', True))
-            bb.data.update_data(localdata)
+            localdata.setVar('OVERRIDES', "pn-" + pnstripped[0] + ":" + d.getVar('OVERRIDES'))
 
         if pname.find("-initial") != -1:
             pnstripped = pname.split("-initial")
             bb.note("initial Split: %s" % pnstripped)
-            localdata.setVar('OVERRIDES', "pn-" + pnstripped[0] + ":" + d.getVar('OVERRIDES', True))
-            bb.data.update_data(localdata)
+            localdata.setVar('OVERRIDES', "pn-" + pnstripped[0] + ":" + d.getVar('OVERRIDES'))
 
-        pdesc = localdata.getVar('DESCRIPTION', True)
-        pgrp = localdata.getVar('SECTION', True)
-        pversion = localdata.getVar('PV', True)
-        plicense = localdata.getVar('LICENSE', True)
-        psection = localdata.getVar('SECTION', True)
-        phome = localdata.getVar('HOMEPAGE', True)
-        prelease = localdata.getVar('PR', True)
-        pdepends = localdata.getVar('DEPENDS', True)
-        pbugtracker = localdata.getVar('BUGTRACKER', True)
-        ppe = localdata.getVar('PE', True)
-        psrcuri = localdata.getVar('SRC_URI', True)
-        maintainer = localdata.getVar('RECIPE_MAINTAINER', True)
+        pdesc = localdata.getVar('DESCRIPTION')
+        pgrp = localdata.getVar('SECTION')
+        plicense = localdata.getVar('LICENSE')
+        psection = localdata.getVar('SECTION')
+        phome = localdata.getVar('HOMEPAGE')
+        prelease = localdata.getVar('PR')
+        pdepends = localdata.getVar('DEPENDS')
+        pbugtracker = localdata.getVar('BUGTRACKER')
+        ppe = localdata.getVar('PE')
+        psrcuri = localdata.getVar('SRC_URI')
+        maintainer = localdata.getVar('RECIPE_MAINTAINER')
 
-        """ Get upstream version version """
-        pupver = ""
-        pstatus = ""
-
-        try:
-            uv = oe.recipeutils.get_recipe_upstream_version(localdata)
-
-            pupver = uv['version']
-        except Exception as e:
-            if e is FetchError:
-                pstatus = "ErrAccess"
-            elif e is NoMethodError:
-                pstatus = "ErrUnsupportedProto"
-            else:
-                pstatus = "ErrUnknown"
-
-        """Set upstream version status"""
-        if not pupver:
-            pupver = "N/A"
-        else:
-            pv, _, _ = oe.recipeutils.get_recipe_pv_without_srcpv(pversion, uri_type)
-            upv, _, _ = oe.recipeutils.get_recipe_pv_without_srcpv(pupver, uri_type)
-
-            cmp = vercmp_string(pv, upv)
-            if cmp == -1:
-                pstatus = "UPDATE"
-            elif cmp == 0:
-                pstatus = "MATCH"
+        pversion, pupver, pstatus, prevision = get_upstream_version_and_status()
 
         if psrcuri:
             psrcuri = psrcuri.split()[0]
@@ -363,23 +335,15 @@ python do_checkpkg() {
             psrcuri = "none"
         pdepends = "".join(pdepends.split("\t"))
         pdesc = "".join(pdesc.split("\t"))
-        no_upgr_reason = d.getVar('RECIPE_NO_UPDATE_REASON', True)
+        no_upgr_reason = d.getVar('RECIPE_NO_UPDATE_REASON')
         lf = bb.utils.lockfile("%s.lock" % logfile)
         with open(logfile, "a") as f:
             writer = csv.writer(f, delimiter='\t')
             writer.writerow([pname, pversion, pupver, plicense, psection, phome, 
-                prelease, pdepends, pbugtracker, ppe, pdesc, pstatus, pupver,
+                prelease, pdepends, pbugtracker, ppe, pdesc, pstatus, prevision,
                 psrcuri, maintainer, no_upgr_reason])
             f.close()
         bb.utils.unlockfile(lf)
-}
-
-addtask checkpkgall after do_checkpkg
-do_checkpkgall[recrdeptask] = "do_checkpkgall do_checkpkg"
-do_checkpkgall[recideptask] = "do_${BB_DEFAULT_TASK}"
-do_checkpkgall[nostamp] = "1"
-do_checkpkgall() {
-        :
 }
 
 addhandler distro_check_eventhandler
@@ -393,6 +357,7 @@ python distro_check_eventhandler() {
 
 addtask distro_check
 do_distro_check[nostamp] = "1"
+do_distro_check[vardepsexclude] += "DATETIME"
 python do_distro_check() {
     """checks if the package is present in other public Linux distros"""
     import oe.distro_check as dc
@@ -401,13 +366,12 @@ python do_distro_check() {
         return
 
     localdata = bb.data.createCopy(d)
-    bb.data.update_data(localdata)
-    tmpdir = d.getVar('TMPDIR', True)
+    tmpdir = d.getVar('TMPDIR')
     distro_check_dir = os.path.join(tmpdir, "distro_check")
-    logpath = d.getVar('LOG_DIR', True)
+    logpath = d.getVar('LOG_DIR')
     bb.utils.mkdirhier(logpath)
     result_file = os.path.join(logpath, "distrocheck.csv")
-    datetime = localdata.getVar('DATETIME', True)
+    datetime = localdata.getVar('DATETIME')
     dc.update_distro_data(distro_check_dir, datetime, localdata)
 
     # do the comparison
@@ -417,13 +381,6 @@ python do_distro_check() {
     dc.save_distro_check_result(result, datetime, result_file, d)
 }
 
-addtask distro_checkall after do_distro_check
-do_distro_checkall[recrdeptask] = "do_distro_checkall do_distro_check"
-do_distro_checkall[recideptask] = "do_${BB_DEFAULT_TASK}"
-do_distro_checkall[nostamp] = "1"
-do_distro_checkall() {
-        :
-}
 #
 #Check Missing License Text.
 #Use this task to generate the missing license text data for pkg-report system,
@@ -450,12 +407,12 @@ do_checklicense[nostamp] = "1"
 python do_checklicense() {
     import csv
     import shutil
-    logpath = d.getVar('LOG_DIR', True)
+    logpath = d.getVar('LOG_DIR')
     bb.utils.mkdirhier(logpath)
-    pn = d.getVar('PN', True)
+    pn = d.getVar('PN')
     logfile = os.path.join(logpath, "missinglicense.csv")
-    generic_directory = d.getVar('COMMON_LICENSE_DIR', True)
-    license_types = d.getVar('LICENSE', True)
+    generic_directory = d.getVar('COMMON_LICENSE_DIR')
+    license_types = d.getVar('LICENSE')
     for license_type in ((license_types.replace('+', '').replace('|', '&')
                           .replace('(', '').replace(')', '').replace(';', '')
                           .replace(',', '').replace(" ", "").split("&"))):
@@ -468,13 +425,3 @@ python do_checklicense() {
             bb.utils.unlockfile(lf)
     return
 }
-
-addtask checklicenseall after do_checklicense
-do_checklicenseall[recrdeptask] = "do_checklicenseall do_checklicense"
-do_checklicenseall[recideptask] = "do_${BB_DEFAULT_TASK}"
-do_checklicenseall[nostamp] = "1"
-do_checklicenseall() {
-        :
-}
-
-

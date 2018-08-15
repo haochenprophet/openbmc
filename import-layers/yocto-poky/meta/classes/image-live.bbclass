@@ -19,7 +19,6 @@
 
 # External variables (also used by syslinux.bbclass)
 # ${INITRD} - indicates a list of filesystem images to concatenate and use as an initrd (optional)
-# ${COMPRESSISO} - Transparent compress ISO, reduce size ~40% if set to 1
 # ${NOISO}  - skip building the ISO image if set to 1
 # ${NOHDD}  - skip building the HDD image if set to 1
 # ${HDDIMG_ID} - FAT image volume-id
@@ -33,30 +32,30 @@ do_bootimg[depends] += "dosfstools-native:do_populate_sysroot \
                         virtual/kernel:do_deploy \
                         ${MLPREFIX}syslinux:do_populate_sysroot \
                         syslinux-native:do_populate_sysroot \
-                        ${@oe.utils.ifelse(d.getVar('COMPRESSISO', False),'zisofs-tools-native:do_populate_sysroot','')} \
-                        ${PN}:do_image_ext4 \
+                        ${PN}:do_image_${@d.getVar('LIVE_ROOTFS_TYPE').replace('-', '_')} \
                         "
 
 
 LABELS_LIVE ?= "boot install"
 ROOT_LIVE ?= "root=/dev/ram0"
-INITRD_IMAGE_LIVE ?= "core-image-minimal-initramfs"
+INITRD_IMAGE_LIVE ?= "${MLPREFIX}core-image-minimal-initramfs"
 INITRD_LIVE ?= "${DEPLOY_DIR_IMAGE}/${INITRD_IMAGE_LIVE}-${MACHINE}.cpio.gz"
 
-ROOTFS ?= "${DEPLOY_DIR_IMAGE}/${IMAGE_LINK_NAME}.ext4"
+LIVE_ROOTFS_TYPE ?= "ext4"
+ROOTFS ?= "${IMGDEPLOYDIR}/${IMAGE_LINK_NAME}.${LIVE_ROOTFS_TYPE}"
 
-IMAGE_TYPEDEP_live = "ext4"
-IMAGE_TYPEDEP_iso = "ext4"
-IMAGE_TYPEDEP_hddimg = "ext4"
+IMAGE_TYPEDEP_live = "${LIVE_ROOTFS_TYPE}"
+IMAGE_TYPEDEP_iso = "${LIVE_ROOTFS_TYPE}"
+IMAGE_TYPEDEP_hddimg = "${LIVE_ROOTFS_TYPE}"
 IMAGE_TYPES_MASKED += "live hddimg iso"
 
 python() {
-    image_b = d.getVar('IMAGE_BASENAME', True)
-    initrd_i = d.getVar('INITRD_IMAGE_LIVE', True)
+    image_b = d.getVar('IMAGE_BASENAME')
+    initrd_i = d.getVar('INITRD_IMAGE_LIVE')
     if image_b == initrd_i:
         bb.error('INITRD_IMAGE_LIVE %s cannot use image live, hddimg or iso.' % initrd_i)
         bb.fatal('Check IMAGE_FSTYPES and INITRAMFS_FSTYPES settings.')
-    else:
+    elif initrd_i:
         d.appendVarFlag('do_bootimg', 'depends', ' %s:do_image_complete' % initrd_i)
 }
 
@@ -64,7 +63,6 @@ HDDDIR = "${S}/hddimg"
 ISODIR = "${S}/iso"
 EFIIMGDIR = "${S}/efi_img"
 COMPACT_ISODIR = "${S}/iso.z"
-COMPRESSISO ?= "0"
 
 ISOLINUXDIR ?= "/isolinux"
 ISO_BOOTIMG = "isolinux/isolinux.bin"
@@ -91,7 +89,7 @@ build_iso() {
 	for fs in ${INITRD}
 	do
 		if [ ! -s "$fs" ]; then
-			bbnote "ISO image will not be created. $fs is invalid."
+			bbwarn "ISO image will not be created. $fs is invalid."
 			return
 		fi
 	done
@@ -114,18 +112,8 @@ build_iso() {
 		install -m 0644 ${STAGING_DATADIR}/syslinux/isolinux.bin ${ISODIR}${ISOLINUXDIR}
 	fi
 
-	if [ "${COMPRESSISO}" = "1" ] ; then
-		# create compact directory, compress iso
-		mkdir -p ${COMPACT_ISODIR}
-		mkzftree -z 9 -p 4 -F ${ISODIR}/rootfs.img ${COMPACT_ISODIR}/rootfs.img
-
-		# move compact iso to iso, then remove compact directory
-		mv ${COMPACT_ISODIR}/rootfs.img ${ISODIR}/rootfs.img
-		rm -Rf ${COMPACT_ISODIR}
-		mkisofs_compress_opts="-R -z -D -l"
-	else
-		mkisofs_compress_opts="-r"
-	fi
+	# We used to have support for zisofs; this is a relic of that
+	mkisofs_compress_opts="-r"
 
 	# Check the size of ${ISODIR}/rootfs.img, use mkisofs -iso-level 3
 	# when it exceeds 3.8GB, the specification is 4G - 1 bytes, we need
@@ -144,14 +132,14 @@ build_iso() {
 	if [ "${PCBIOS}" = "1" ] && [ "${EFI}" != "1" ] ; then
 		# PCBIOS only media
 		mkisofs -V ${BOOTIMG_VOLUME_ID} \
-		        -o ${DEPLOY_DIR_IMAGE}/${IMAGE_NAME}.iso \
+		        -o ${IMGDEPLOYDIR}/${IMAGE_NAME}.iso \
 			-b ${ISO_BOOTIMG} -c ${ISO_BOOTCAT} \
 			$mkisofs_compress_opts \
 			${MKISOFS_OPTIONS} $mkisofs_iso_level ${ISODIR}
 	else
 		# EFI only OR EFI+PCBIOS
 		mkisofs -A ${BOOTIMG_VOLUME_ID} -V ${BOOTIMG_VOLUME_ID} \
-		        -o ${DEPLOY_DIR_IMAGE}/${IMAGE_NAME}.iso \
+		        -o ${IMGDEPLOYDIR}/${IMAGE_NAME}.iso \
 			-b ${ISO_BOOTIMG} -c ${ISO_BOOTCAT} \
 			$mkisofs_compress_opts ${MKISOFS_OPTIONS} $mkisofs_iso_level \
 			-eltorito-alt-boot -eltorito-platform efi \
@@ -160,7 +148,7 @@ build_iso() {
 		isohybrid_args="-u"
 	fi
 
-	isohybrid $isohybrid_args ${DEPLOY_DIR_IMAGE}/${IMAGE_NAME}.iso
+	isohybrid $isohybrid_args ${IMGDEPLOYDIR}/${IMAGE_NAME}.iso
 }
 
 build_fat_img() {
@@ -202,12 +190,6 @@ build_fat_img() {
 	# Determine the final size in blocks accounting for some padding
 	BLOCKS=$(expr $(expr $SECTORS / 2) + ${BOOTIMG_EXTRA_SPACE})
 
-	# Ensure total sectors is an integral number of sectors per
-	# track or mcopy will complain. Sectors are 512 bytes, and we
-	# generate images with 32 sectors per track. This calculation is
-	# done in blocks, thus the mod by 16 instead of 32.
-	BLOCKS=$(expr $BLOCKS + $(expr 16 - $(expr $BLOCKS % 16)))
-
 	# mkdosfs will sometimes use FAT16 when it is not appropriate,
 	# resulting in a boot failure from SYSLINUX. Use FAT32 for
 	# images larger than 512MB, otherwise let mkdosfs decide.
@@ -222,10 +204,10 @@ build_fat_img() {
 	fi
 
 	if [ -z "${HDDIMG_ID}" ]; then
-		mkdosfs ${FATSIZE} -n ${BOOTIMG_VOLUME_ID} -S 512 -C ${FATIMG} \
+		mkdosfs ${FATSIZE} -n ${BOOTIMG_VOLUME_ID} ${MKDOSFS_EXTRAOPTS} -C ${FATIMG} \
 			${BLOCKS}
 	else
-		mkdosfs ${FATSIZE} -n ${BOOTIMG_VOLUME_ID} -S 512 -C ${FATIMG} \
+		mkdosfs ${FATSIZE} -n ${BOOTIMG_VOLUME_ID} ${MKDOSFS_EXTRAOPTS} -C ${FATIMG} \
 		${BLOCKS} -i ${HDDIMG_ID}
 	fi
 
@@ -258,21 +240,21 @@ build_hddimg() {
 			fi
 		fi
 
-		build_fat_img ${HDDDIR} ${DEPLOY_DIR_IMAGE}/${IMAGE_NAME}.hddimg
+		build_fat_img ${HDDDIR} ${IMGDEPLOYDIR}/${IMAGE_NAME}.hddimg
 
 		if [ "${PCBIOS}" = "1" ]; then
 			syslinux_hddimg_install
 		fi
 
-		chmod 644 ${DEPLOY_DIR_IMAGE}/${IMAGE_NAME}.hddimg
+		chmod 644 ${IMGDEPLOYDIR}/${IMAGE_NAME}.hddimg
 	fi
 }
 
 python do_bootimg() {
     set_live_vm_vars(d, 'LIVE')
-    if d.getVar("PCBIOS", True) == "1":
+    if d.getVar("PCBIOS") == "1":
         bb.build.exec_func('build_syslinux_cfg', d)
-    if d.getVar("EFI", True) == "1":
+    if d.getVar("EFI") == "1":
         bb.build.exec_func('build_efi_cfg', d)
     bb.build.exec_func('build_hddimg', d)
     bb.build.exec_func('build_iso', d)

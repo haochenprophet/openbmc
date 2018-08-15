@@ -1,7 +1,7 @@
 # Copyright (C) 2015 Khem Raj <raj.khem@gmail.com>
 # Released under the MIT license (see COPYING.MIT for the terms)
 
-DESCRIPTION = "Glibc hierarchical argument parsing standalone library"
+SUMMARY = "Glibc hierarchical argument parsing standalone library"
 HOMEPAGE = "http://www.lysator.liu.se/~nisse/misc/"
 LICENSE = "LGPL-2.1"
 LIC_FILES_CHKSUM = "file://argp.h;beginline=1;endline=20;md5=008b7e53dea6f9e1d9fdef0d9cf3184a"
@@ -18,6 +18,9 @@ SRC_URI[sha256sum] = "dec79694da1319acd2238ce95df57f3680fea2482096e483323fddf3d8
 inherit autotools
 
 CFLAGS += "-fPIC -U__OPTIMIZE__"
+
+RDEPENDS_${PN}-dev = ""
+RDEPENDS_${PN}-staticdev = ""
 
 do_install() {
 	install -D -m 0644 ${B}/libargp.a ${D}${libdir}/libargp.a

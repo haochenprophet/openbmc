@@ -7,14 +7,14 @@ LIC_FILES_CHKSUM = "file://LICENSE;md5=e7807a6282784a7dde4c846626b08fc6 \
 
 SECTION = "devel"
 
-DEPENDS = "libpcre python"
+DEPENDS = "libpcre python3"
 
 SRC_URI = "${SOURCEFORGE_MIRROR}/${BPN}/${BPN}-${PV}.tar.gz"
 
-inherit autotools pythonnative
+inherit autotools python3native pkgconfig
 
 EXTRA_OECONF = " \
-    --with-python=${PYTHON} \
+    --with-python3=${PYTHON} \
     --without-allegrocl \
     --without-android \
     --without-boost \
@@ -33,7 +33,6 @@ EXTRA_OECONF = " \
     --without-perl5 \
     --without-pike \
     --without-php \
-    --without-python3 \
     --without-r \
     --without-ruby \
     --without-tcl \
@@ -55,8 +54,8 @@ do_install_append_class-nativesdk() {
 }
 
 def swiglib_relpath(d):
-    swiglib = d.getVar('datadir', True) + "/" + d.getVar('BPN', True) + "/" + d.getVar('PV', True)
-    return os.path.relpath(swiglib, d.getVar('bindir', True))
+    swiglib = d.getVar('datadir') + "/" + d.getVar('BPN') + "/" + d.getVar('PV')
+    return os.path.relpath(swiglib, d.getVar('bindir'))
 
 do_install_append_class-native() {
     create_wrapper ${D}${bindir}/swig SWIG_LIB='`dirname $''realpath`'/${@swiglib_relpath(d)}

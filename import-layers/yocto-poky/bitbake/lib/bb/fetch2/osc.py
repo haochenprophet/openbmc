@@ -10,7 +10,6 @@ import  os
 import  sys
 import logging
 import  bb
-from    bb       import data
 from    bb.fetch2 import FetchMethod
 from    bb.fetch2 import FetchError
 from    bb.fetch2 import MissingParameterError
@@ -34,7 +33,7 @@ class Osc(FetchMethod):
 
         # Create paths to osc checkouts
         relpath = self._strip_leading_slashes(ud.path)
-        ud.pkgdir = os.path.join(d.getVar('OSCDIR', True), ud.host)
+        ud.pkgdir = os.path.join(d.getVar('OSCDIR'), ud.host)
         ud.moddir = os.path.join(ud.pkgdir, relpath, ud.module)
 
         if 'rev' in ud.parm:
@@ -47,7 +46,7 @@ class Osc(FetchMethod):
             else:
                 ud.revision = ""
 
-        ud.localfile = data.expand('%s_%s_%s.tar.gz' % (ud.module.replace('/', '.'), ud.path.replace('/', '.'), ud.revision), d)
+        ud.localfile = d.expand('%s_%s_%s.tar.gz' % (ud.module.replace('/', '.'), ud.path.replace('/', '.'), ud.revision))
 
     def _buildosccommand(self, ud, d, command):
         """
@@ -55,7 +54,7 @@ class Osc(FetchMethod):
         command is "fetch", "update", "info"
         """
 
-        basecmd = data.expand('${FETCHCMD_osc}', d)
+        basecmd = d.expand('${FETCHCMD_osc}')
 
         proto = ud.parm.get('protocol', 'ocs')
 
@@ -84,27 +83,25 @@ class Osc(FetchMethod):
 
         logger.debug(2, "Fetch: checking for module directory '" + ud.moddir + "'")
 
-        if os.access(os.path.join(d.getVar('OSCDIR', True), ud.path, ud.module), os.R_OK):
+        if os.access(os.path.join(d.getVar('OSCDIR'), ud.path, ud.module), os.R_OK):
             oscupdatecmd = self._buildosccommand(ud, d, "update")
             logger.info("Update "+ ud.url)
             # update sources there
-            os.chdir(ud.moddir)
             logger.debug(1, "Running %s", oscupdatecmd)
             bb.fetch2.check_network_access(d, oscupdatecmd, ud.url)
-            runfetchcmd(oscupdatecmd, d)
+            runfetchcmd(oscupdatecmd, d, workdir=ud.moddir)
         else:
             oscfetchcmd = self._buildosccommand(ud, d, "fetch")
             logger.info("Fetch " + ud.url)
             # check out sources there
             bb.utils.mkdirhier(ud.pkgdir)
-            os.chdir(ud.pkgdir)
             logger.debug(1, "Running %s", oscfetchcmd)
             bb.fetch2.check_network_access(d, oscfetchcmd, ud.url)
-            runfetchcmd(oscfetchcmd, d)
+            runfetchcmd(oscfetchcmd, d, workdir=ud.pkgdir)
 
-        os.chdir(os.path.join(ud.pkgdir + ud.path))
         # tar them up to a defined filename
-        runfetchcmd("tar -czf %s %s" % (ud.localpath, ud.module), d, cleanup = [ud.localpath])
+        runfetchcmd("tar -czf %s %s" % (ud.localpath, ud.module), d,
+                    cleanup=[ud.localpath], workdir=os.path.join(ud.pkgdir + ud.path))
 
     def supports_srcrev(self):
         return False
@@ -114,7 +111,7 @@ class Osc(FetchMethod):
         Generate a .oscrc to be used for this run.
         """
 
-        config_path = os.path.join(d.getVar('OSCDIR', True), "oscrc")
+        config_path = os.path.join(d.getVar('OSCDIR'), "oscrc")
         if (os.path.exists(config_path)):
             os.remove(config_path)
 
@@ -123,8 +120,8 @@ class Osc(FetchMethod):
         f.write("apisrv = %s\n" % ud.host)
         f.write("scheme = http\n")
         f.write("su-wrapper = su -c\n")
-        f.write("build-root = %s\n" % d.getVar('WORKDIR', True))
-        f.write("urllist = %s\n" % d.getVar("OSCURLLIST", True))
+        f.write("build-root = %s\n" % d.getVar('WORKDIR'))
+        f.write("urllist = %s\n" % d.getVar("OSCURLLIST"))
         f.write("extra-pkgs = gzip\n")
         f.write("\n")
         f.write("[%s]\n" % ud.host)

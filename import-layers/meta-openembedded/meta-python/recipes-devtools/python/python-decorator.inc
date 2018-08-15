@@ -7,9 +7,13 @@ can be abused and you should not try to solve every problem with a \
 decorator, just because you can."
 
 LICENSE = "BSD"
-LIC_FILES_CHKSUM = "file://LICENSE.txt;md5=41e24e0e235a97e60cdb5c4137fa2cd0"
+LIC_FILES_CHKSUM = "file://LICENSE.txt;md5=893f896413826096ce5270c700a498fd"
 
-SRC_URI[md5sum] = "f12c5651ccd707e12a0abaa4f76cd69a"
-SRC_URI[sha256sum] = "90022e83316363788a55352fe39cfbed357aa3a71d90e5f2803a35471de4bba8"
+SRC_URI[md5sum] = "249e7299b9b4bced0c382343f84eb1c0"
+SRC_URI[sha256sum] = "c39efa13fbdeb4506c476c9b3babf6a718da943dab7811c206005a4a956c080c"
 
 inherit pypi
+
+RDEPENDS_${PN} += "\
+    ${PYTHON_PN}-stringold \
+    "

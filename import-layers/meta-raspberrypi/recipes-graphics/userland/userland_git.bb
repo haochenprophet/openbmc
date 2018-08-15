@@ -5,18 +5,20 @@ vcos, openmaxil, vchiq_arm, bcm_host, WFC, OpenVG."
 LICENSE = "BSD-3-Clause"
 LIC_FILES_CHKSUM = "file://LICENCE;md5=0448d6488ef8cc380632b1569ee6d196"
 
-PR = "r5"
-
 PROVIDES = "virtual/libgles2 \
             virtual/egl"
 
-RPROVIDES_${PN} += "libgles2 libgl"
+RPROVIDES_${PN} += "libgles2 egl libegl"
 
-COMPATIBLE_MACHINE = "raspberrypi"
+COMPATIBLE_MACHINE = "^rpi$"
 
 SRCBRANCH = "master"
 SRCFORK = "raspberrypi"
-SRCREV = "0147f98bdd4fdc822d25d8a70cf5adc5adb89096"
+SRCREV = "11389772c79685442e0ab8aa9be8ad0e32703f68"
+
+# Use the date of the above commit as the package version. Update this when
+# SRCREV is changed.
+PV = "20180219"
 
 SRC_URI = "\
     git://github.com/${SRCFORK}/userland.git;protocol=git;branch=${SRCBRANCH} \
@@ -29,18 +31,26 @@ SRC_URI = "\
     file://0007-initialize-front-back-wayland-buffers.patch \
     file://0008-Remove-RPC_FLUSH.patch \
     file://0009-fix-cmake-dependency-race.patch \
-    file://0010-Fix-enum-conversion-warnings.patch \
-    file://0011-Fix-for-framerate-with-nested-composition.patch \
-    file://0012-build-shared-library-for-vchostif.patch \
-    file://0013-implement-buffer-wrapping-interface-for-dispmanx.patch \
+    file://0010-Fix-for-framerate-with-nested-composition.patch \
+    file://0011-build-shared-library-for-vchostif.patch \
+    file://0012-implement-buffer-wrapping-interface-for-dispmanx.patch \
+    file://0013-Implement-triple-buffering-for-wayland.patch \
+    file://0014-GLES2-gl2ext.h-Define-GL_R8_EXT-and-GL_RG8_EXT.patch \
+    file://0015-EGL-glplatform.h-define-EGL_CAST.patch \
+    file://0016-Allow-multiple-wayland-compositor-state-data-per-pro.patch \
 "
 S = "${WORKDIR}/git"
 
 inherit cmake pkgconfig
 
+ASNEEDED = ""
+
 EXTRA_OECMAKE = "-DCMAKE_BUILD_TYPE=Release -DCMAKE_EXE_LINKER_FLAGS='-Wl,--no-as-needed' \
                  -DVMCS_INSTALL_PREFIX=${exec_prefix} \
 "
+
+EXTRA_OECMAKE_append_aarch64 = " -DARM64=ON "
+
 
 PACKAGECONFIG ?= "${@bb.utils.contains('DISTRO_FEATURES', 'wayland', 'wayland', '', d)}"
 
@@ -71,3 +81,5 @@ FILES_${PN}-doc += "${datadir}/install"
 FILES_${PN}-dbg += "${libdir}/plugins/.debug"
 
 PACKAGE_ARCH = "${MACHINE_ARCH}"
+
+RDEPENDS_${PN} += "bash"

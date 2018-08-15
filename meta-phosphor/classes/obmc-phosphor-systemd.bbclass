@@ -80,7 +80,7 @@ def SystemdUnit(unit):
                 base = self.unit.replace('dbus-', '')
                 base = base.replace('.%s' % cls, '')
                 if self.is_instance:
-                    base = base.rstrip('@%s' % self.instance)
+                    base = base.replace('@%s' % self.instance, '')
                 if self.is_template:
                     base = base.rstrip('@')
                 return base
@@ -98,8 +98,8 @@ def SystemdUnit(unit):
 
 
 def systemd_parse_unit(d, path):
-    import ConfigParser
-    parser = ConfigParser.SafeConfigParser()
+    import configparser
+    parser = configparser.SafeConfigParser(strict=False)
     parser.optionxform = str
     parser.read('%s' % path)
     return parser
@@ -128,6 +128,7 @@ python() {
                 'bindir',
                 'sbindir',
                 'envfiledir',
+                'sysconfdir',
                 'SYSTEMD_DEFAULT_TARGET' ]:
             set_append(d, 'SYSTEMD_SUBSTITUTIONS',
                 '%s:%s:%s' % (x, d.getVar(x, True), file))
@@ -197,6 +198,11 @@ python() {
         add_sd_user(d, '%s' % dest, pkg)
 
 
+    if d.getVar('CLASSOVERRIDE', True) != 'class-target':
+        return
+
+    d.appendVarFlag('do_install', 'postfuncs', ' systemd_do_postinst')
+
     pn = d.getVar('PN', True)
     if d.getVar('SYSTEMD_SERVICE_%s' % pn, True) is None:
         d.setVar('SYSTEMD_SERVICE_%s' % pn, '%s.service' % pn)
@@ -229,7 +235,7 @@ python systemd_do_postinst() {
             spec, file = spec.rsplit(':', 1)
             all_subs.setdefault(file, []).append(spec)
 
-        for f, v in all_subs.iteritems():
+        for f, v in all_subs.items():
             subs = dict([ x.split(':') for x in v])
             if not subs:
                 continue
@@ -325,6 +331,3 @@ do_install_append() {
                         ${D}${systemd_system_unitdir}/$s
         done
 }
-
-
-do_install[postfuncs] += "systemd_do_postinst"

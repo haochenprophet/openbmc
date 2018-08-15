@@ -19,9 +19,10 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-from django.conf.urls import patterns, include, url
-from django.views.generic import RedirectView
+from django.conf.urls import include, url
+from django.views.generic import RedirectView, TemplateView
 from django.views.decorators.cache import never_cache
+import bldcollector.views
 
 import logging
 
@@ -31,7 +32,7 @@ logger = logging.getLogger("toaster")
 from django.contrib import admin
 admin.autodiscover()
 
-urlpatterns = patterns('',
+urlpatterns = [
 
     # Examples:
     # url(r'^toaster/', include('toaster.foo.urls')),
@@ -42,11 +43,13 @@ urlpatterns = patterns('',
 
     # This is here to maintain backward compatibility and will be deprecated
     # in the future.
-    url(r'^orm/eventfile$', 'bldcollector.views.eventfile'),
+    url(r'^orm/eventfile$', bldcollector.views.eventfile),
+
+    url(r'^health$', TemplateView.as_view(template_name="health.html"), name='Toaster Health'),
 
     # if no application is selected, we have the magic toastergui app here
     url(r'^$', never_cache(RedirectView.as_view(url='/toastergui/', permanent=True))),
-)
+]
 
 import toastermain.settings
 
@@ -71,7 +74,7 @@ import os
 currentdir = os.path.dirname(__file__)
 for t in os.walk(os.path.dirname(currentdir)):
     #if we have a virtualenv skip it to avoid incorrect imports
-    if os.environ.has_key('VIRTUAL_ENV') and os.environ['VIRTUAL_ENV'] in t[0]:
+    if 'VIRTUAL_ENV' in os.environ and os.environ['VIRTUAL_ENV'] in t[0]:
         continue
 
     if "urls.py" in t[2] and t[0] != currentdir:
@@ -84,7 +87,7 @@ for t in os.walk(os.path.dirname(currentdir)):
         if not conflict:
             urlpatterns.insert(0, url(r'^' + modulename + '/', include ( modulename + '.urls')))
         else:
-            logger.warn("Module \'%s\' has a regexp conflict, was not added to the urlpatterns" % modulename)
+            logger.warning("Module \'%s\' has a regexp conflict, was not added to the urlpatterns" % modulename)
 
 from pprint import pformat
 #logger.debug("urlpatterns list %s", pformat(urlpatterns))

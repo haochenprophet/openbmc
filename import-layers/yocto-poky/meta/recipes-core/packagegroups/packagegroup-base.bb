@@ -1,5 +1,4 @@
 SUMMARY = "Merge machine and distro options to create a basic machine task/package"
-LICENSE = "MIT"
 PR = "r83"
 
 #
@@ -55,7 +54,6 @@ RDEPENDS_packagegroup-base = "\
     packagegroup-distro-base \
     packagegroup-machine-base \
     \
-    sysfsutils \
     module-init-tools \
     ${@bb.utils.contains('MACHINE_FEATURES', 'apm', 'packagegroup-base-apm', '',d)} \
     ${@bb.utils.contains('MACHINE_FEATURES', 'acpi', 'packagegroup-base-acpi', '',d)} \
@@ -111,8 +109,8 @@ python __anonymous () {
     # If Distro want wifi and machine feature wifi/pci/pcmcia/usbhost (one of them)
     # then include packagegroup-base-wifi in packagegroup-base
 
-    distro_features = set(d.getVar("DISTRO_FEATURES", True).split())
-    machine_features= set(d.getVar("MACHINE_FEATURES", True).split())
+    distro_features = set(d.getVar("DISTRO_FEATURES").split())
+    machine_features= set(d.getVar("MACHINE_FEATURES").split())
 
     if "bluetooth" in distro_features and not "bluetooth" in machine_features and ("pcmcia" in machine_features or "pci" in machine_features or "usbhost" in machine_features):
         d.setVar("ADD_BT", "packagegroup-base-bluetooth")
@@ -153,8 +151,7 @@ RDEPENDS_packagegroup-base-pci = "\
 
 SUMMARY_packagegroup-base-acpi = "ACPI support"
 RDEPENDS_packagegroup-base-acpi = "\
-    acpid \
-    libacpi "
+    acpid"
 
 SUMMARY_packagegroup-base-apm = "APM support"
 RDEPENDS_packagegroup-base-apm = "\
@@ -205,7 +202,7 @@ RRECOMMENDS_packagegroup-base-pcmcia = "\
 SUMMARY_packagegroup-base-bluetooth = "Bluetooth support"
 RDEPENDS_packagegroup-base-bluetooth = "\
     ${BLUEZ} \
-    ${@bb.utils.contains('COMBINED_FEATURES', 'alsa', 'libasound-module-bluez', '',d)} \
+    ${@bb.utils.contains('COMBINED_FEATURES', 'alsa', bb.utils.contains('BLUEZ', 'bluez4', 'libasound-module-bluez', '', d), '',d)} \
     "
 
 RRECOMMENDS_packagegroup-base-bluetooth = "\
@@ -293,8 +290,6 @@ RRECOMMENDS_packagegroup-base-ipsec = "\
 SUMMARY_packagegroup-base-wifi = "WiFi support"
 RDEPENDS_packagegroup-base-wifi = "\
     ${VIRTUAL-RUNTIME_wireless-tools} \
-    ${@bb.utils.contains('COMBINED_FEATURES', 'pcmcia', 'hostap-utils', '',d)} \
-    ${@bb.utils.contains('COMBINED_FEATURES', 'pci', 'hostap-utils', '',d)} \
     wpa-supplicant"
 
 RRECOMMENDS_packagegroup-base-wifi = "\

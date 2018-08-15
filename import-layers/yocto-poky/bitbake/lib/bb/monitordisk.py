@@ -129,7 +129,7 @@ def getDiskData(BBDirs, configuration):
             bb.utils.mkdirhier(path)
         dev = getMountedDev(path)
         # Use path/action as the key
-        devDict[os.path.join(path, action)] = [dev, minSpace, minInode]
+        devDict[(path, action)] = [dev, minSpace, minInode]
 
     return devDict
 
@@ -141,7 +141,7 @@ def getInterval(configuration):
     spaceDefault = 50 * 1024 * 1024
     inodeDefault = 5 * 1024
 
-    interval = configuration.getVar("BB_DISKMON_WARNINTERVAL", True)
+    interval = configuration.getVar("BB_DISKMON_WARNINTERVAL")
     if not interval:
         return spaceDefault, inodeDefault
     else:
@@ -179,7 +179,7 @@ class diskMonitor:
         self.enableMonitor = False
         self.configuration = configuration
 
-        BBDirs = configuration.getVar("BB_DISKMON_DIRS", True) or None
+        BBDirs = configuration.getVar("BB_DISKMON_DIRS") or None
         if BBDirs:
             self.devDict = getDiskData(BBDirs, configuration)
             if self.devDict:
@@ -205,22 +205,25 @@ class diskMonitor:
         """ Take action for the monitor """
 
         if self.enableMonitor:
-            for k in self.devDict:
-                path = os.path.dirname(k)
-                action = os.path.basename(k)
-                dev = self.devDict[k][0]
-                minSpace = self.devDict[k][1]
-                minInode = self.devDict[k][2]
+            diskUsage = {}
+            for k, attributes in self.devDict.items():
+                path, action = k
+                dev, minSpace, minInode = attributes
 
                 st = os.statvfs(path)
 
-                # The free space, float point number
+                # The available free space, integer number
                 freeSpace = st.f_bavail * st.f_frsize
+
+                # Send all relevant information in the event.
+                freeSpaceRoot = st.f_bfree * st.f_frsize
+                totalSpace = st.f_blocks * st.f_frsize
+                diskUsage[dev] = bb.event.DiskUsageSample(freeSpace, freeSpaceRoot, totalSpace)
 
                 if minSpace and freeSpace < minSpace:
                     # Always show warning, the self.checked would always be False if the action is WARN
                     if self.preFreeS[k] == 0 or self.preFreeS[k] - freeSpace > self.spaceInterval and not self.checked[k]:
-                        logger.warn("The free space of %s (%s) is running low (%.3fGB left)" % \
+                        logger.warning("The free space of %s (%s) is running low (%.3fGB left)" % \
                                 (path, dev, freeSpace / 1024 / 1024 / 1024.0))
                         self.preFreeS[k] = freeSpace
 
@@ -235,7 +238,7 @@ class diskMonitor:
                         rq.finish_runqueue(True)
                         bb.event.fire(bb.event.DiskFull(dev, 'disk', freeSpace, path), self.configuration)
 
-                # The free inodes, float point number
+                # The free inodes, integer number
                 freeInode = st.f_favail
 
                 if minInode and freeInode < minInode:
@@ -246,7 +249,7 @@ class diskMonitor:
                         continue
                     # Always show warning, the self.checked would always be False if the action is WARN
                     if self.preFreeI[k] == 0 or self.preFreeI[k] - freeInode > self.inodeInterval and not self.checked[k]:
-                        logger.warn("The free inode of %s (%s) is running low (%.3fK left)" % \
+                        logger.warning("The free inode of %s (%s) is running low (%.3fK left)" % \
                                 (path, dev, freeInode / 1024.0))
                         self.preFreeI[k] = freeInode
 
@@ -260,4 +263,6 @@ class diskMonitor:
                         self.checked[k] = True
                         rq.finish_runqueue(True)
                         bb.event.fire(bb.event.DiskFull(dev, 'inode', freeInode, path), self.configuration)
+
+            bb.event.fire(bb.event.MonitorDiskEvent(diskUsage), self.configuration)
         return

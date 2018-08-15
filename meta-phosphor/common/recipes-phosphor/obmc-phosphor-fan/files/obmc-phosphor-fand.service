@@ -1,9 +1,0 @@
-[Unit]
-Description=Phosphor OpenBMC fan management daemon
-
-[Service]
-Restart=always
-ExecStart=/usr/sbin/obmc-phosphor-fand
-
-[Install]
-WantedBy=multi-user.target

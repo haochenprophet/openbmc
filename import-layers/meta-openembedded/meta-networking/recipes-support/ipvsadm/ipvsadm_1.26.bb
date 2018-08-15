@@ -1,4 +1,5 @@
 SUMMARY = "Linux Virtual Server administration Utility"
+HOMEPAGE = "http://www.linux-vs.org/software/index.html"
 DESCRIPTION = "Ipvsadm  is  used  to set up, maintain or inspect the virtual server \
 table in the Linux kernel. The Linux Virtual  Server  can  be  used  to \
 build  scalable  network  services  based  on  a cluster of two or more nodes. \
@@ -19,6 +20,7 @@ SRC_URI = "http://www.linuxvirtualserver.org/software/kernel-2.6/${BP}.tar.gz \
         file://0001-Modify-the-Makefile-for-cross-compile.patch \
         file://0002-Replace-nl_handle-to-nl_sock.patch \
         file://0003-ipvsadm-remove-dependency-on-bash.patch \
+        file://makefile-add-ldflags.patch \
 "
 
 SRC_URI[md5sum] = "eac3ba3f62cd4dea2da353aeddd353a8"

@@ -39,28 +39,6 @@ def tinfoil_init(instance):
     tinfoil = instance
 
 
-def _provide_to_pn(cooker, provide):
-    """Get the name of the preferred recipe for the specified provide."""
-    import bb.providers
-    filenames = cooker.recipecache.providers[provide]
-    eligible, foundUnique = bb.providers.filterProviders(filenames, provide, cooker.expanded_data, cooker.recipecache)
-    filename = eligible[0]
-    pn = cooker.recipecache.pkg_fn[filename]
-    return pn
-
-
-def _get_recipe_file(cooker, pn):
-    import oe.recipeutils
-    recipefile = oe.recipeutils.pn_to_recipe(cooker, pn)
-    if not recipefile:
-        skipreasons = oe.recipeutils.get_unavailable_reasons(cooker, pn)
-        if skipreasons:
-            logger.error('\n'.join(skipreasons))
-        else:
-            logger.error("Unable to find any recipe file matching %s" % pn)
-    return recipefile
-
-
 def layer(layerpath):
     if not os.path.exists(os.path.join(layerpath, 'conf', 'layer.conf')):
         raise argparse.ArgumentTypeError('{0!r} must be a path to a valid layer'.format(layerpath))
@@ -70,8 +48,7 @@ def layer(layerpath):
 def newappend(args):
     import oe.recipeutils
 
-    pn = _provide_to_pn(tinfoil.cooker, args.target)
-    recipe_path = _get_recipe_file(tinfoil.cooker, pn)
+    recipe_path = tinfoil.get_recipe_file(args.target)
 
     rd = tinfoil.config_data.createCopy()
     rd.setVar('FILE', recipe_path)
@@ -81,9 +58,9 @@ def newappend(args):
         return 1
 
     if not path_ok:
-        logger.warn('Unable to determine correct subdirectory path for bbappend file - check that what %s adds to BBFILES also matches .bbappend files. Using %s for now, but until you fix this the bbappend will not be applied.', os.path.join(destlayerdir, 'conf', 'layer.conf'), os.path.dirname(appendpath))
+        logger.warn('Unable to determine correct subdirectory path for bbappend file - check that what %s adds to BBFILES also matches .bbappend files. Using %s for now, but until you fix this the bbappend will not be applied.', os.path.join(args.destlayer, 'conf', 'layer.conf'), os.path.dirname(append_path))
 
-    layerdirs = [os.path.abspath(layerdir) for layerdir in rd.getVar('BBLAYERS', True).split()]
+    layerdirs = [os.path.abspath(layerdir) for layerdir in rd.getVar('BBLAYERS').split()]
     if not os.path.abspath(args.destlayer) in layerdirs:
         logger.warn('Specified layer is not currently enabled in bblayers.conf, you will need to add it before this bbappend will be active')
 
@@ -97,7 +74,7 @@ def newappend(args):
             return 1
 
     if args.edit:
-        return scriptutils.run_editor([append_path, recipe_path])
+        return scriptutils.run_editor([append_path, recipe_path], logger)
     else:
         print(append_path)
 

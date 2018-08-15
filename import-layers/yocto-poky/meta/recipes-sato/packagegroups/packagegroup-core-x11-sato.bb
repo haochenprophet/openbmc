@@ -3,7 +3,6 @@
 #
 
 SUMMARY = "Sato desktop"
-LICENSE = "MIT"
 PR = "r33"
 
 PACKAGE_ARCH = "${MACHINE_ARCH}"
@@ -20,7 +19,6 @@ RDEPENDS_${PN} = "\
     "
 
 NETWORK_MANAGER ?= "connman-gnome"
-NETWORK_MANAGER_libc-uclibc = ""
 
 SUMMARY_${PN}-base = "Sato desktop - base packages"
 RDEPENDS_${PN}-base = "\
@@ -31,9 +29,8 @@ RDEPENDS_${PN}-base = "\
     matchbox-keyboard-im \
     matchbox-config-gtk \
     xcursor-transparent-theme \
-    sato-icon-theme \
+    adwaita-icon-theme \
     settings-daemon \
-    gtk-sato-engine \
     shutdown-desktop \
     libsdl \
     ${NETWORK_MANAGER} \
@@ -48,8 +45,8 @@ WEB ?= ""
 
 SUMMARY_${PN}-apps = "Sato desktop - applications"
 RDEPENDS_${PN}-apps = "\
-    leafpad \
-    gst-player-bin \
+    l3afpad \
+    gst-examples \
     matchbox-terminal \
     sato-screenshot \
     ${FILEMANAGER} \
@@ -58,5 +55,5 @@ RDEPENDS_${PN}-apps = "\
 
 SUMMARY_${PN}-games = "Sato desktop - games"
 RDEPENDS_${PN}-games = "\
-    oh-puzzles \
+    puzzles \
     "

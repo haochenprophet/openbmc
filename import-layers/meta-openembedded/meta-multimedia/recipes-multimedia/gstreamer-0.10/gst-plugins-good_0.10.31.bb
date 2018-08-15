@@ -8,8 +8,7 @@ LIC_FILES_CHKSUM = "file://COPYING;md5=a6f89e2100d9b6cdffcea4f398e37343 \
 PR = "r8"
 
 PACKAGECONFIG ?= "jpeg v4l \
-    ${@bb.utils.contains('DISTRO_FEATURES', 'pulseaudio', 'pulseaudio', '', d)} \
-    ${@bb.utils.contains('DISTRO_FEATURES', 'x11', 'x11', '', d)} \
+    ${@bb.utils.filter('DISTRO_FEATURES', 'pulseaudio x11', d)} \
 "
 PACKAGECONFIG[pulseaudio] = "--enable-pulse,--disable-pulse,pulseaudio"
 PACKAGECONFIG[jack] = "--enable-jack,--disable-jack,jack"
@@ -37,8 +36,8 @@ EXTRA_OECONF += "--disable-aalib --disable-esd --disable-shout2 --disable-libcac
                  --disable-examples --disable-taglib"
 
 do_configure_prepend() {
-	# This m4 file contains nastiness which conflicts with libtool 2.2.2
-	rm ${S}/m4/lib-link.m4 || true
+    # This m4 file contains nastiness which conflicts with libtool 2.2.2
+    rm ${S}/m4/lib-link.m4 || true
 }
 
 SRC_URI[md5sum] = "24f98a294a2b521e1b29412bdadae2e6"

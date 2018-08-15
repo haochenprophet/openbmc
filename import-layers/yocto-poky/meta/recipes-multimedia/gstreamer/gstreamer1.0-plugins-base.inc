@@ -17,9 +17,8 @@ PACKAGES_DYNAMIC =+ "^libgst.*"
 
 PACKAGECONFIG ??= " \
     ${GSTREAMER_ORC} \
-    ${@bb.utils.contains('DISTRO_FEATURES', 'alsa', 'alsa', '', d)} \
-    ${@bb.utils.contains('DISTRO_FEATURES', 'x11', 'x11', '', d)} \
-    gio-unix-2.0 ivorbis ogg pango theora vorbis \
+    ${@bb.utils.filter('DISTRO_FEATURES', 'alsa x11', d)} \
+    gio-unix-2.0 ogg pango theora vorbis \
 "
 
 X11DEPENDS = "virtual/libx11 libsm libxrender libxv"
@@ -31,6 +30,7 @@ PACKAGECONFIG[cdparanoia]   = "--enable-cdparanoia,--disable-cdparanoia,cdparano
 PACKAGECONFIG[gio-unix-2.0] = "--enable-gio_unix_2_0,--disable-gio_unix_2_0,glib-2.0"
 PACKAGECONFIG[ivorbis]      = "--enable-ivorbis,--disable-ivorbis,tremor"
 PACKAGECONFIG[ogg]          = "--enable-ogg,--disable-ogg,libogg"
+PACKAGECONFIG[opus]         = "--enable-opus,--disable-opus,libopus"
 PACKAGECONFIG[pango]        = "--enable-pango,--disable-pango,pango"
 PACKAGECONFIG[theora]       = "--enable-theora,--disable-theora,libtheora"
 PACKAGECONFIG[visual]       = "--enable-libvisual,--disable-libvisual,libvisual"

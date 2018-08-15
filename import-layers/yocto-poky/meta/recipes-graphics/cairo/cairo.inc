@@ -13,6 +13,7 @@ SECTION = "libs"
 LICENSE = "MPL-1 & LGPLv2.1 & GPLv3+"
 LICENSE_${PN} = "MPL-1 & LGPLv2.1"
 LICENSE_${PN}-dev = "MPL-1 & LGPLv2.1"
+LICENSE_${PN}-doc = "MPL-1 & LGPLv2.1"
 LICENSE_${PN}-gobject = "MPL-1 & LGPLv2.1"
 LICENSE_${PN}-script-interpreter = "MPL-1 & LGPLv2.1"
 LICENSE_${PN}-perf-utils = "GPLv3+"
@@ -21,7 +22,7 @@ X11DEPENDS = "virtual/libx11 libsm libxrender libxext"
 DEPENDS = "libpng fontconfig pixman glib-2.0 zlib"
 
 PACKAGECONFIG ??= "${@bb.utils.contains('DISTRO_FEATURES', 'x11', 'x11 xcb', '', d)} \
-           ${@bb.utils.contains('DISTRO_FEATURES', 'directfb', 'directfb', '', d)}"
+           ${@bb.utils.filter('DISTRO_FEATURES', 'directfb', d)}"
 
 PACKAGECONFIG[x11] = "--with-x=yes -enable-xlib,--with-x=no --disable-xlib,${X11DEPENDS}"
 PACKAGECONFIG[xcb] = "--enable-xcb,--disable-xcb,libxcb"
@@ -29,6 +30,7 @@ PACKAGECONFIG[directfb] = "--enable-directfb=yes,,directfb"
 PACKAGECONFIG[valgrind] = "--enable-valgrind=yes,--disable-valgrind,valgrind"
 PACKAGECONFIG[egl] = "--enable-egl=yes,--disable-egl,virtual/egl"
 PACKAGECONFIG[glesv2] = "--enable-glesv2,--disable-glesv2,virtual/libgles2"
+PACKAGECONFIG[opengl] = "--enable-gl,--disable-gl,virtual/libgl"
 
 #check for TARGET_FPU=soft and inform configure of the result so it can disable some floating points 
 require cairo-fpu.inc
@@ -36,7 +38,7 @@ EXTRA_OECONF += "${@get_cairo_fpu_setting(bb, d)} \
                  --enable-tee \
                 "
 
-inherit autotools pkgconfig
+inherit autotools pkgconfig upstream-version-is-even gtk-doc
 
 # We don't depend on binutils so we need to disable this
 export ac_cv_lib_bfd_bfd_openr="no"

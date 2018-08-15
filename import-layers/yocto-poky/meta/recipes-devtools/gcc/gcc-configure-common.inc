@@ -22,13 +22,16 @@ EXTRA_OECONF_INITIAL ?= ""
 GCCMULTILIB ?= "--disable-multilib"
 GCCTHREADS ?= "posix"
 
+GCCPIE ??= ""
+
 EXTRA_OECONF = "\
-    ${@['--enable-clocale=generic', ''][d.getVar('USE_NLS', True) != 'no']} \
+    ${@['--enable-clocale=generic', ''][d.getVar('USE_NLS') != 'no']} \
     --with-gnu-ld \
     --enable-shared \
     --enable-languages=${LANGUAGES} \
     --enable-threads=${GCCTHREADS} \
     ${GCCMULTILIB} \
+    ${GCCPIE} \
     --enable-c99 \
     --enable-long-long \
     --enable-symvers=gnu \
@@ -44,27 +47,25 @@ EXTRA_OECONF = "\
     ${@get_gcc_multiarch_setting(bb, d)} \
 "
 
+# Set this here since GCC configure won't auto-detect and enable
+# initfini-arry when cross compiling.
+EXTRA_OECONF_append = " --enable-initfini-array"
+
 export gcc_cv_collect2_libs = 'none required'
 # We need to set gcc_cv_collect2_libs else there is cross-compilation badness
 # in the config.log files (which might not get generated until do_compile
 # hence being missed by the insane do_configure check).
 
-# Build uclibc compilers without cxa_atexit support
 EXTRA_OECONF_append_linux = " --enable-__cxa_atexit"
-EXTRA_OECONF_append_libc-uclibc = " --enable-__cxa_atexit"
 
 EXTRA_OECONF_append_mips64 = " --with-abi=64 --with-arch-64=mips64 --with-tune-64=mips64"
 EXTRA_OECONF_append_mips64el = " --with-abi=64 --with-arch-64=mips64 --with-tune-64=mips64"
 EXTRA_OECONF_append_mips64n32 = " --with-abi=64 --with-arch-64=mips64 --with-tune-64=mips64"
 EXTRA_OECONF_append_mips64eln32 = " --with-abi=64 --with-arch-64=mips64 --with-tune-64=mips64"
-
-# ARMv6+ adds atomic instructions that affect the ABI in libraries built
-# with TUNE_CCARGS in gcc-runtime.  Make the compiler default to a
-# compatible architecture.  armv6 and armv7a cover the minimum tune
-# features used in OE.
-EXTRA_OECONF_append_armv6 = " --with-arch=armv6"
-EXTRA_OECONF_append_armv7a = " --with-arch=armv7-a"
-EXTRA_OECONF_append_armv7ve = " --with-arch=armv7-a"
+EXTRA_OECONF_append_mipsisa32r6el = " --with-abi=32 --with-arch=mips32r6"
+EXTRA_OECONF_append_mipsisa32r6 = " --with-abi=32 --with-arch=mips32r6"
+EXTRA_OECONF_append_mipsisa64r6el = " --with-abi=64 --with-arch-64=mips64r6"
+EXTRA_OECONF_append_mipsisa64r6 = " --with-abi=64 --with-arch-64=mips64r6"
 
 EXTRA_OECONF_GCC_FLOAT ??= ""
 CPPFLAGS = ""

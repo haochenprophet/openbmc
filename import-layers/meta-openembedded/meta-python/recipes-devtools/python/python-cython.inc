@@ -4,18 +4,37 @@ and the messy, low-level world of C."
 SECTION = "devel/python"
 LICENSE = "Apache-2.0"
 LIC_FILES_CHKSUM = "file://LICENSE.txt;md5=e23fadd6ceef8c618fc1c65191d846fa"
-SRCNAME = "Cython"
-BBCLASSEXTEND = "native"
+PYPI_PACKAGE = "Cython"
+BBCLASSEXTEND = "native nativesdk"
 
-SRC_URI = "http://www.cython.org/release/${SRCNAME}-${PV}.tar.gz"
-S = "${WORKDIR}/${SRCNAME}-${PV}"
+SRC_URI[md5sum] = "0e0568d6bed4b09ad01afe0a38805305"
+SRC_URI[sha256sum] = "634e2f10fc8d026c633cffacb45cd8f4582149fa68e1428124e762dbc566e68a"
 
-SRC_URI[md5sum] = "14fbc970f4a856845e633cbc09e61048"
-SRC_URI[sha256sum] = "6de44d8c482128efc12334641347a9c3e5098d807dd3c69e867fa8f84ec2a3f1"
+inherit pypi
 
-RDEPENDS_${PN} += "\
+RDEPENDS_${PN}_class-target += "\
+    ${PYTHON_PN}-misc \
     ${PYTHON_PN}-netserver \
-    ${PYTHON_PN}-subprocess \
+    ${PYTHON_PN}-pkgutil \
+    ${PYTHON_PN}-pyparsing \
+    ${PYTHON_PN}-setuptools \
     ${PYTHON_PN}-shell \
+    ${PYTHON_PN}-xml \
 "
-RDEPENDS_${PN}_class-native = ""
+
+RDEPENDS_${PN}_class-nativesdk += "\
+    nativesdk-${PYTHON_PN}-misc \
+    nativesdk-${PYTHON_PN}-netserver \
+    nativesdk-${PYTHON_PN}-pkgutil \
+    nativesdk-${PYTHON_PN}-pyparsing \
+    nativesdk-${PYTHON_PN}-setuptools \
+    nativesdk-${PYTHON_PN}-shell \
+    nativesdk-${PYTHON_PN}-xml \
+"
+
+do_install_append() {
+	# Make sure we use /usr/bin/env python
+	for PYTHSCRIPT in `grep -rIl '^#!.*python' ${D}`; do
+		sed -i -e '1s|^#!.*|#!/usr/bin/env ${PYTHON_PN}|' $PYTHSCRIPT
+	done
+}

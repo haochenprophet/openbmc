@@ -85,7 +85,7 @@ MACHINE ??= "barreleye"
 # Ultimately when creating custom policy, people will likely end up subclassing 
 # these defaults.
 #
-DISTRO ?= "openbmc-phosphor"
+DISTRO ?= "openbmc-openpower"
 # As an example of a subclass there is a "bleeding" edge policy configuration
 # where many versions are set to the absolute latest code from the upstream 
 # source control systems. This is just mentioned here as an example, its not
@@ -190,7 +190,7 @@ PATCHRESOLVE = "noop"
 # shutdown the build. If there is less that 100MB or 1K inodes, perform a hard abort
 # of the build. The reason for this is that running completely out of space can corrupt
 # files and damages the build in ways which may not be easily recoverable.
-# It's necesary to monitor /tmp, if there is no space left the build will fail
+# It's necessary to monitor /tmp, if there is no space left the build will fail
 # with very exotic errors.
 BB_DISKMON_DIRS = "\
     STOPTASKS,${TMPDIR},1G,100K \
@@ -243,7 +243,4 @@ INHERIT += "extrausers"
 EXTRA_USERS_PARAMS = " \
   usermod -p '\$1\$UGMqyqdG\$FZiylVFmRRfl9Z0Ue8G7e/' root; \
   "
-
-# Package exclusions - Exclude packages included by default in the common image
-IMAGE_INSTALL_remove = "packagegroup-obmc-phosphor-apps-extrasdev"
 

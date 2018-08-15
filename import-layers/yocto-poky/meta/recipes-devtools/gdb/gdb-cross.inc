@@ -1,17 +1,15 @@
 require gdb-common.inc
 
-DEPENDS = "expat-native ncurses-native"
+DEPENDS = "expat-native ncurses-native flex-native bison-native"
 
-inherit pythonnative
+inherit python3native
 
 # Overrides PACKAGECONFIG variables in gdb-common.inc
 PACKAGECONFIG ??= "python readline"
-PACKAGECONFIG[python] = "--with-python=${STAGING_BINDIR_NATIVE}/python-native/python,--without-python,python-native"
+PACKAGECONFIG[python] = "--with-python=${PYTHON},--without-python,python3-native"
 PACKAGECONFIG[readline] = "--with-system-readline,--without-system-readline,readline-native"
 
 do_compile_prepend() {
-    export BUILD_SYS="${BUILD_SYS}"
-    export HOST_SYS="${HOST_SYS}"
     export STAGING_LIBDIR="${STAGING_LIBDIR_NATIVE}"
     export STAGING_INCDIR="${STAGING_INCDIR_NATIVE}"
 }
@@ -23,7 +21,10 @@ GDBPROPREFIX = ""
 PN = "gdb-cross-${TARGET_ARCH}"
 BPN = "gdb"
 
+# Ignore how TARGET_ARCH is computed.
+TARGET_ARCH[vardepvalue] = "${TARGET_ARCH}"
+
 inherit cross
 inherit gettext
 
-datadir .= "/gdb-${TUNE_PKGARCH}${TARGET_VENDOR}-${TARGET_OS}"
+datadir .= "/gdb-${TARGET_SYS}${TARGET_VENDOR}-${TARGET_OS}"

@@ -10,13 +10,13 @@ LIC_FILES_CHKSUM = "file://LICENSE;md5=3b83ef96387f14655fc854ddc3c6bd57"
 
 inherit pkgconfig cmake gitpkgv
 
-PV = "1.2.5+gitr${SRCPV}"
+PV = "2.0.0+gitr${SRCPV}"
 PKGV = "${GITPKGVTAG}"
 
-SRCREV = "62da9d28c674814c81c245c1c7882eb0da7be76b"
+SRCREV = "1648deb435ad52206f7aa2afe4b4dff71d9329bc"
 SRC_URI = "git://github.com/FreeRDP/FreeRDP.git \
     file://winpr-makecert-Build-with-install-RPATH.patch \
-    file://0001-FindGStreamer_1_0-fix-build-failure-for-new-gstreame.patch \
+    file://0001-Fix-gstreamer-1.0-detection.patch \
 "
 
 S = "${WORKDIR}/git"
@@ -32,14 +32,10 @@ EXTRA_OECMAKE += " \
     -DWITH_MANPAGES=OFF \
 "
 
-PACKAGECONFIG ??= "  \
-                ${@bb.utils.contains('DISTRO_FEATURES', 'x11', 'x11', '', d)}\
-                ${@bb.utils.contains('DISTRO_FEATURES', 'wayland', 'wayland', '', d)}\
-                ${@bb.utils.contains('DISTRO_FEATURES', 'directfb', 'directfb', '', d)}\
-                ${@bb.utils.contains('DISTRO_FEATURES', 'pam', 'pam', '', d)}\
-                ${@bb.utils.contains('DISTRO_FEATURES', 'pulseaudio', 'pulseaudio', '', d)}\
-                gstreamer cups \
-                "
+PACKAGECONFIG ??= " \
+    ${@bb.utils.filter('DISTRO_FEATURES', 'directfb pam pulseaudio wayland x11', d)}\
+    gstreamer cups \
+"
 
 X11_DEPS = "virtual/libx11 libxinerama libxext libxcursor libxv libxi libxrender libxfixes libxdamage libxrandr libxkbfile"
 PACKAGECONFIG[x11] = "-DWITH_X11=ON -DWITH_XINERAMA=ON -DWITH_XEXT=ON -DWITH_XCURSOR=ON -DWITH_XV=ON -DWITH_XI=ON -DWITH_XRENDER=ON -DWITH_XFIXES=ON -DWITH_XDAMAGE=ON -DWITH_XRANDR=ON -DWITH_XKBFILE=ON,-DWITH_X11=OFF,${X11_DEPS}"
@@ -60,7 +56,7 @@ PACKAGES_DYNAMIC += "^libfreerdp-plugin-.*"
 # we will need winpr-makecert to generate TLS certificates
 do_install_append () {
     install -d ${D}${bindir}
-    install -m755 winpr/tools/makecert/cli/winpr-makecert ${D}${bindir}
+    install -m755 winpr/tools/makecert-cli/winpr-makecert ${D}${bindir}
     rm -rf ${D}${libdir}/cmake
     rm -rf ${D}${libdir}/freerdp
 }

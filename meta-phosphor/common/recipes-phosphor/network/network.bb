@@ -3,23 +3,25 @@ DESCRIPTION = "Network DBUS object"
 HOMEPAGE = "http://github.com/openbmc/phosphor-networkd"
 PR = "r1"
 
+inherit autotools pkgconfig
+inherit pythonnative
 inherit obmc-phosphor-license
-inherit obmc-phosphor-systemd
-inherit obmc-phosphor-sdbus-service
+inherit obmc-phosphor-dbus-service
+inherit phosphor-networkd-rev
 
-SYSTEMD_SERVICE_${PN} += "network.service network-update-dns.service"
+DBUS_SERVICE_${PN} += "xyz.openbmc_project.Network.service"
 
-RDEPENDS_${PN} += "python-dbus python-pygobject python-ipy"
+DEPENDS += "systemd"
+DEPENDS += "autoconf-archive-native"
+DEPENDS += "sdbusplus sdbusplus-native"
+DEPENDS += "phosphor-dbus-interfaces phosphor-dbus-interfaces-native"
+DEPENDS += "phosphor-logging"
+DEPENDS += "libnl"
 
-SRC_URI += "git://github.com/openbmc/phosphor-networkd"
-
-SRCREV = "53b692b2365e924025fce0ebc2be4242e77b48ca"
+RDEPENDS_${PN} += "libsystemd"
+RDEPENDS_${PN} += "sdbusplus phosphor-dbus-interfaces"
+RDEPENDS_${PN} += "phosphor-logging"
+RDEPENDS_${PN} += "libnl"
+RDEPENDS_${PN} += "libnl-genl"
 
 S = "${WORKDIR}/git"
-
-do_install() {
-        install -d ${D}/${sbindir}
-        install ${S}/netman.py ${D}/${sbindir}
-        install ${S}/netman_watch_dns ${D}/${sbindir}
-}
-

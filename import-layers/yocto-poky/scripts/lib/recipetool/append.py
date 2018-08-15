@@ -48,7 +48,7 @@ def find_target_file(targetpath, d, pkglist=None):
     """Find the recipe installing the specified target path, optionally limited to a select list of packages"""
     import json
 
-    pkgdata_dir = d.getVar('PKGDATA_DIR', True)
+    pkgdata_dir = d.getVar('PKGDATA_DIR')
 
     # The mix between /etc and ${sysconfdir} here may look odd, but it is just
     # being consistent with usage elsewhere
@@ -61,7 +61,7 @@ def find_target_file(targetpath, d, pkglist=None):
                       '/etc/gshadow': '/etc/gshadow should be managed through the useradd and extrausers classes',
                       '${sysconfdir}/hostname': '${sysconfdir}/hostname contents should be set by setting hostname_pn-base-files = "value" in configuration',}
 
-    for pthspec, message in invalidtargets.iteritems():
+    for pthspec, message in invalidtargets.items():
         if fnmatch.fnmatchcase(targetpath, d.expand(pthspec)):
             raise InvalidTargetFileError(d.expand(message))
 
@@ -90,33 +90,19 @@ def find_target_file(targetpath, d, pkglist=None):
                             if fnmatch.fnmatchcase(fullpth, targetpath):
                                 recipes[targetpath].append(pn)
                     elif line.startswith('pkg_preinst_') or line.startswith('pkg_postinst_'):
-                        scriptval = line.split(':', 1)[1].strip().decode('string_escape')
+                        scriptval = line.split(':', 1)[1].strip().encode('utf-8').decode('unicode_escape')
                         if 'update-alternatives --install %s ' % targetpath in scriptval:
                             recipes[targetpath].append('?%s' % pn)
                         elif targetpath_re.search(scriptval):
                             recipes[targetpath].append('!%s' % pn)
     return recipes
 
-def _get_recipe_file(cooker, pn):
-    import oe.recipeutils
-    recipefile = oe.recipeutils.pn_to_recipe(cooker, pn)
-    if not recipefile:
-        skipreasons = oe.recipeutils.get_unavailable_reasons(cooker, pn)
-        if skipreasons:
-            logger.error('\n'.join(skipreasons))
-        else:
-            logger.error("Unable to find any recipe file matching %s" % pn)
-    return recipefile
-
 def _parse_recipe(pn, tinfoil):
-    import oe.recipeutils
-    recipefile = _get_recipe_file(tinfoil.cooker, pn)
-    if not recipefile:
-        # Error already logged
+    try:
+        rd = tinfoil.parse_recipe(pn)
+    except bb.providers.NoProvider as e:
+        logger.error(str(e))
         return None
-    append_files = tinfoil.cooker.collection.get_file_appends(recipefile)
-    rd = oe.recipeutils.parse_recipe(recipefile, append_files,
-                                    tinfoil.config_data)
     return rd
 
 def determine_file_source(targetpath, rd):
@@ -124,8 +110,8 @@ def determine_file_source(targetpath, rd):
     import oe.recipeutils
 
     # See if it's in do_install for the recipe
-    workdir = rd.getVar('WORKDIR', True)
-    src_uri = rd.getVar('SRC_URI', True)
+    workdir = rd.getVar('WORKDIR')
+    src_uri = rd.getVar('SRC_URI')
     srcfile = ''
     modpatches = []
     elements = check_do_install(rd, targetpath)
@@ -135,7 +121,7 @@ def determine_file_source(targetpath, rd):
         logger.debug('source path: %s' % srcpath)
         if not srcpath.startswith('/'):
             # Handle non-absolute path
-            srcpath = os.path.abspath(os.path.join(rd.getVarFlag('do_install', 'dirs', True).split()[-1], srcpath))
+            srcpath = os.path.abspath(os.path.join(rd.getVarFlag('do_install', 'dirs').split()[-1], srcpath))
         if srcpath.startswith(workdir):
             # OK, now we have the source file name, look for it in SRC_URI
             workdirfile = os.path.relpath(srcpath, workdir)
@@ -152,7 +138,7 @@ def determine_file_source(targetpath, rd):
         # Check patches
         srcpatches = []
         patchedfiles = oe.recipeutils.get_recipe_patched_files(rd)
-        for patch, filelist in patchedfiles.iteritems():
+        for patch, filelist in patchedfiles.items():
             for fileitem in filelist:
                 if fileitem[0] == srcpath:
                     srcpatches.append((patch, fileitem[1]))
@@ -172,7 +158,7 @@ def get_source_path(cmdelements):
     """Find the source path specified within a command"""
     command = cmdelements[0]
     if command in ['install', 'cp']:
-        helptext = subprocess.check_output('LC_ALL=C %s --help' % command, shell=True)
+        helptext = subprocess.check_output('LC_ALL=C %s --help' % command, shell=True).decode('utf-8')
         argopts = ''
         argopt_line_re = re.compile('^-([a-zA-Z0-9]), --[a-z-]+=')
         for line in helptext.splitlines():
@@ -204,22 +190,22 @@ def get_source_path(cmdelements):
 
 def get_func_deps(func, d):
     """Find the function dependencies of a shell function"""
-    deps = bb.codeparser.ShellParser(func, logger).parse_shell(d.getVar(func, True))
-    deps |= set((d.getVarFlag(func, "vardeps", True) or "").split())
+    deps = bb.codeparser.ShellParser(func, logger).parse_shell(d.getVar(func))
+    deps |= set((d.getVarFlag(func, "vardeps") or "").split())
     funcdeps = []
     for dep in deps:
-        if d.getVarFlag(dep, 'func', True):
+        if d.getVarFlag(dep, 'func'):
             funcdeps.append(dep)
     return funcdeps
 
 def check_do_install(rd, targetpath):
     """Look at do_install for a command that installs/copies the specified target path"""
-    instpath = os.path.abspath(os.path.join(rd.getVar('D', True), targetpath.lstrip('/')))
-    do_install = rd.getVar('do_install', True)
+    instpath = os.path.abspath(os.path.join(rd.getVar('D'), targetpath.lstrip('/')))
+    do_install = rd.getVar('do_install')
     # Handle where do_install calls other functions (somewhat crudely, but good enough for this purpose)
     deps = get_func_deps('do_install', rd)
     for dep in deps:
-        do_install = do_install.replace(dep, rd.getVar(dep, True))
+        do_install = do_install.replace(dep, rd.getVar(dep))
 
     # Look backwards through do_install as we want to catch where a later line (perhaps
     # from a bbappend) is writing over the top
@@ -270,7 +256,7 @@ def appendfile(args):
     postinst_pns = []
 
     selectpn = None
-    for targetpath, pnlist in recipes.iteritems():
+    for targetpath, pnlist in recipes.items():
         for pn in pnlist:
             if pn.startswith('?'):
                 alternative_pns.append(pn[1:])
@@ -336,12 +322,12 @@ def appendfile(args):
 def appendsrc(args, files, rd, extralines=None):
     import oe.recipeutils
 
-    srcdir = rd.getVar('S', True)
-    workdir = rd.getVar('WORKDIR', True)
+    srcdir = rd.getVar('S')
+    workdir = rd.getVar('WORKDIR')
 
     import bb.fetch
     simplified = {}
-    src_uri = rd.getVar('SRC_URI', True).split()
+    src_uri = rd.getVar('SRC_URI').split()
     for uri in src_uri:
         if uri.endswith(';'):
             uri = uri[:-1]
@@ -351,10 +337,10 @@ def appendsrc(args, files, rd, extralines=None):
 
     copyfiles = {}
     extralines = extralines or []
-    for newfile, srcfile in files.iteritems():
+    for newfile, srcfile in files.items():
         src_destdir = os.path.dirname(srcfile)
         if not args.use_workdir:
-            if rd.getVar('S', True) == rd.getVar('STAGING_KERNEL_DIR', True):
+            if rd.getVar('S') == rd.getVar('STAGING_KERNEL_DIR'):
                 srcdir = os.path.join(workdir, 'git')
                 if not bb.data.inherits_class('kernel-yocto', rd):
                     logger.warn('S == STAGING_KERNEL_DIR and non-kernel-yocto, unable to determine path to srcdir, defaulting to ${WORKDIR}/git')

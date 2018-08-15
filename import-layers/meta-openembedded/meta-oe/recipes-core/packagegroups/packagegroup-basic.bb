@@ -3,7 +3,7 @@
 
 SUMMARY = "Basic task to get a device online"
 LICENSE = "MIT"
-LIC_FILES_CHKSUM = "file://${COREBASE}/LICENSE;md5=4d92cd373abda3937c2bc47fbc49d690"
+LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
 
 PR = "r13"
 
@@ -22,7 +22,7 @@ MACHINE_EXTRA_RRECOMMENDS ?= ""
 TASK_BASIC_SSHDAEMON ?= "dropbear openssh-sftp openssh-sftp-server"
 
 #
-# The section below is designed to match with packagegroup-boot, but doesn't depend on it to allow for more freedom 
+# The section below is designed to match with packagegroup-boot, but doesn't depend on it to allow for more freedom
 # when writing image recipes.
 # It also avoids the choice between connman/networkmanager/ifupdown since that is an image feature, not a
 # distro feature.
@@ -38,7 +38,7 @@ RDEPENDS_${PN} = "\
 # The following section is split in 3:
 #   1) Machine features: kernel modules and userspace helpers for those
 #   2) Distro features: packages associated with those
-#   3) Nice to have: packages that are nice to have, but aren't strictly needed  
+#   3) Nice to have: packages that are nice to have, but aren't strictly needed
 #
 RRECOMMENDS_${PN} = "\
     ${MACHINE_EXTRA_RRECOMMENDS} \

@@ -8,6 +8,8 @@ LIC_FILES_CHKSUM = "file://COPYING;md5=b234ee4d69f5fce4486a80fdaf4a4263"
 
 inherit cmake pkgconfig
 
+OECMAKE_GENERATOR = "Unix Makefiles"
+
 DEPENDS = "luajit zlib ncurses"
 RDEPENDS_${PN} = "bash"
 
@@ -30,6 +32,10 @@ EXTRA_OECMAKE = ' -DUSE_BUNDLED_LUAJIT="OFF" \
 
 FILES_${PN} += " \
     ${DIR_ETC}/* \
-    ${datadir}/zsh/* \ 
+    ${datadir}/zsh/* \
     ${prefix}/src/*  \
 "
+
+# luajit not supported on Aarch64
+COMPATIBLE_HOST = "^(?!aarch64).*"
+

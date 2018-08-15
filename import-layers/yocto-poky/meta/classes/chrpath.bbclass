@@ -5,29 +5,36 @@ def process_file_linux(cmd, fpath, rootdir, baseprefix, tmpdir, d):
     import subprocess as sub
 
     p = sub.Popen([cmd, '-l', fpath],stdout=sub.PIPE,stderr=sub.PIPE)
-    err, out = p.communicate()
-    # If returned successfully, process stderr for results
+    out, err = p.communicate()
+    # If returned successfully, process stdout for results
     if p.returncode != 0:
         return
 
+    out = out.decode('utf-8')
+
     # Handle RUNPATH as well as RPATH
-    err = err.replace("RUNPATH=","RPATH=")
+    out = out.replace("RUNPATH=","RPATH=")
     # Throw away everything other than the rpath list
-    curr_rpath = err.partition("RPATH=")[2]
+    curr_rpath = out.partition("RPATH=")[2]
     #bb.note("Current rpath for %s is %s" % (fpath, curr_rpath.strip()))
-    rpaths = curr_rpath.split(":")
+    rpaths = curr_rpath.strip().split(":")
     new_rpaths = []
     modified = False
     for rpath in rpaths:
         # If rpath is already dynamic copy it to new_rpath and continue
         if rpath.find("$ORIGIN") != -1:
-            new_rpaths.append(rpath.strip())
+            new_rpaths.append(rpath)
             continue
         rpath =  os.path.normpath(rpath)
         if baseprefix not in rpath and tmpdir not in rpath:
-            new_rpaths.append(rpath.strip())
+            # Skip standard search paths
+            if rpath in ['/lib', '/usr/lib', '/lib64/', '/usr/lib64']:
+                bb.warn("Skipping RPATH %s as is a standard search path for %s" % (rpath, fpath))
+                modified = True
+                continue
+            new_rpaths.append(rpath)
             continue
-        new_rpaths.append("$ORIGIN/" + os.path.relpath(rpath.strip(), os.path.dirname(fpath.replace(rootdir, "/"))))
+        new_rpaths.append("$ORIGIN/" + os.path.relpath(rpath, os.path.dirname(fpath.replace(rootdir, "/"))))
         modified = True
 
     # if we have modified some rpaths call chrpath to update the binary
@@ -37,18 +44,17 @@ def process_file_linux(cmd, fpath, rootdir, baseprefix, tmpdir, d):
         p = sub.Popen([cmd, '-r', args, fpath],stdout=sub.PIPE,stderr=sub.PIPE)
         out, err = p.communicate()
         if p.returncode != 0:
-            bb.error("%s: chrpath command failed with exit code %d:\n%s%s" % (d.getVar('PN', True), p.returncode, out, err))
-            raise bb.build.FuncFailed
+            bb.fatal("%s: chrpath command failed with exit code %d:\n%s%s" % (d.getVar('PN'), p.returncode, out, err))
 
 def process_file_darwin(cmd, fpath, rootdir, baseprefix, tmpdir, d):
     import subprocess as sub
 
     p = sub.Popen([d.expand("${HOST_PREFIX}otool"), '-L', fpath],stdout=sub.PIPE,stderr=sub.PIPE)
-    err, out = p.communicate()
-    # If returned successfully, process stderr for results
+    out, err = p.communicate()
+    # If returned successfully, process stdout for results
     if p.returncode != 0:
         return
-    for l in err.split("\n"):
+    for l in out.split("\n"):
         if "(compatibility" not in l:
             continue
         rpath = l.partition("(compatibility")[0].strip()
@@ -57,7 +63,7 @@ def process_file_darwin(cmd, fpath, rootdir, baseprefix, tmpdir, d):
 
         newpath = "@loader_path/" + os.path.relpath(rpath, os.path.dirname(fpath.replace(rootdir, "/")))
         p = sub.Popen([d.expand("${HOST_PREFIX}install_name_tool"), '-change', rpath, newpath, fpath],stdout=sub.PIPE,stderr=sub.PIPE)
-        err, out = p.communicate()
+        out, err = p.communicate()
 
 def process_dir (rootdir, directory, d):
     import stat
@@ -66,7 +72,7 @@ def process_dir (rootdir, directory, d):
     cmd = d.expand('${CHRPATH_BIN}')
     tmpdir = os.path.normpath(d.getVar('TMPDIR', False))
     baseprefix = os.path.normpath(d.expand('${base_prefix}'))
-    hostos = d.getVar("HOST_OS", True)
+    hostos = d.getVar("HOST_OS")
 
     #bb.debug("Checking %s for binaries to process" % directory)
     if not os.path.exists(directory):

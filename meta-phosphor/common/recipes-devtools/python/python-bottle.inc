@@ -11,15 +11,19 @@ LIC_FILES_CHKSUM = "file://${WORKDIR}/LICENSE;md5=94b9b2cc7e46ccea87e00af8970826
 
 inherit allarch
 inherit setuptools
+inherit pypi
 
-S = "${WORKDIR}/${SRCNAME}-${PV}"
-RDEPENDS_${PN} += "python-email-utils"
+RDEPENDS_${PN} += " \
+        python-email \
+        python-json \
+        python-netserver \
+        "
 
 PROVIDES += "${PN}-app"
-PACKAGES += "${PN}-app"
+PACKAGE_BEFORE_PN += "${PN}-app"
 
 SUMMARY_${PN}-app = "${SRCNAME} app"
 RDEPENDS_${PN}-app = "${PN}"
-FILES_${PN}-app = "${bindir}/bottle.py"
+FILES_${PN}-app = "${bindir}/bottle.py*"
 
 BBCLASSEXTEND = "nativesdk"

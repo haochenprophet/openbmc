@@ -1,0 +1,15 @@
+[Unit]
+Description=Phosphor MBOX Daemon
+BindsTo=dev-aspeed\x2dlpc\x2dctrl.device
+After=dev-aspeed\x2dlpc\x2dctrl.device
+BindsTo=dev-aspeed\x2dmbox.device
+After=dev-aspeed\x2dmbox.device
+
+
+[Service]
+Restart=always
+ExecStart=/usr/bin/env mboxd --flash {FLASH_SIZE} --window-size 1M
+SyslogIdentifier=mboxd
+
+[Install]
+WantedBy={SYSTEMD_DEFAULT_TARGET}

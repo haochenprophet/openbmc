@@ -18,13 +18,13 @@ RDEPENDS_${PN} += " \
 
 SRC_URI += "git://github.com/openbmc/openpower-inventory-upload"
 
-SRCREV = "b07de872ac18710dbf0d393a206e2598c6580f46"
+SRCREV = "c115852fb5aa0890373d8c2dfca9b9f7b1e06527"
 
 S = "${WORKDIR}/git"
 
 TMPL = "op-inventory-upload@.service"
 INSTFMT = "op-inventory-upload@{0}.service"
-TGTFMT = "obmc-chassis-start@{0}.target"
+TGTFMT = "obmc-host-start@{0}.target"
 FMT = "../${TMPL}:${TGTFMT}.wants/${INSTFMT}"
 
 SYSTEMD_SERVICE_${PN} += "${TMPL}"

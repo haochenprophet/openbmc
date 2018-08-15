@@ -8,22 +8,31 @@ LICENSE = "GPLv3+ & SGIv1"
 LIC_FILES_CHKSUM = "file://COPYING;md5=d32239bcb673463ab874e80d47fae504 \
                     file://COPYING.SGI;beginline=5;md5=269cdab4af6748677acce51d9aa13552"
 
-DEPENDS = "libpng12 jpeg"
+DEPENDS = "libpng jpeg udev"
 
-PV = "2014.03+${SRCPV}"
+PV = "2017.07+${SRCPV}"
+
+COMPATIBLE_HOST_rpi  = "${@bb.utils.contains('MACHINE_FEATURES', 'vc4graphics', '.*-linux*', 'null', d)}"
 
 SRC_URI = "git://github.com/glmark2/glmark2.git;protocol=https \
            file://build-Check-packages-to-be-used-by-the-enabled-flavo.patch \
-           file://0001-Fix-wl_surface-should-be-destoryed-after-the-wl_wind.patch"
-SRCREV = "fa71af2dfab711fac87b9504b6fc9862f44bf72a"
+           file://Fix-configure-for-sqrt-check.patch \
+           file://0001-Fix-clang-warnings.patch \
+           "
+SRCREV = "ed20c633f1926d1dd78e3e89043c85a81302cbe6"
 
 S = "${WORKDIR}/git"
 
-inherit waf pkgconfig
+inherit waf pkgconfig distro_features_check
+
+REQUIRED_DISTRO_FEATURES += "opengl"
 
 PACKAGECONFIG ?= "${@bb.utils.contains('DISTRO_FEATURES', 'x11 opengl', 'x11-gl x11-gles2', '', d)} \
                   ${@bb.utils.contains('DISTRO_FEATURES', 'wayland opengl', 'wayland-gl wayland-gles2', '', d)} \
                   drm-gl drm-gles2"
+
+# Enable C++11 features
+CXXFLAGS += "-std=c++11"
 
 PACKAGECONFIG[x11-gl] = ",,virtual/libgl virtual/libx11"
 PACKAGECONFIG[x11-gles2] = ",,virtual/libgles2 virtual/libx11"
@@ -33,7 +42,7 @@ PACKAGECONFIG[wayland-gl] = ",,virtual/libgl wayland"
 PACKAGECONFIG[wayland-gles2] = ",,virtual/libgles2 wayland"
 
 python __anonymous() {
-    packageconfig = (d.getVar("PACKAGECONFIG", True) or "").split()
+    packageconfig = (d.getVar("PACKAGECONFIG") or "").split()
     flavors = []
     if "x11-gles2" in packageconfig:
         flavors.append("x11-glesv2")
@@ -50,3 +59,4 @@ python __anonymous() {
     if flavors:
         d.appendVar("EXTRA_OECONF", " --with-flavors=%s" % ",".join(flavors))
 }
+

@@ -14,14 +14,25 @@ ROOTFS_POSTPROCESS_COMMAND += "rootfs_update_timestamp ; "
 # Tweak the mount options for rootfs in /etc/fstab if read-only-rootfs is enabled
 ROOTFS_POSTPROCESS_COMMAND += '${@bb.utils.contains("IMAGE_FEATURES", "read-only-rootfs", "read_only_rootfs_hook; ", "",d)}'
 
+# We also need to do the same for the kernel boot parameters,
+# otherwise kernel or initramfs end up mounting the rootfs read/write
+# (the default) if supported by the underlying storage.
+#
+# We do this with _append because the default value might get set later with ?=
+# and we don't want to disable such a default that by setting a value here.
+APPEND_append = '${@bb.utils.contains("IMAGE_FEATURES", "read-only-rootfs", " ro", "", d)}'
+
+# Generates test data file with data store variables expanded in json format
+ROOTFS_POSTPROCESS_COMMAND += "write_image_test_data ; "
+
 # Write manifest
-IMAGE_MANIFEST = "${DEPLOY_DIR_IMAGE}/${IMAGE_NAME}.rootfs.manifest"
+IMAGE_MANIFEST = "${IMGDEPLOYDIR}/${IMAGE_NAME}.rootfs.manifest"
 ROOTFS_POSTUNINSTALL_COMMAND =+ "write_image_manifest ; "
 # Set default postinst log file
 POSTINST_LOGFILE ?= "${localstatedir}/log/postinstall.log"
 # Set default target for systemd images
 SYSTEMD_DEFAULT_TARGET ?= '${@bb.utils.contains("IMAGE_FEATURES", "x11-base", "graphical.target", "multi-user.target", d)}'
-ROOTFS_POSTPROCESS_COMMAND += '${@bb.utils.contains("DISTRO_FEATURES", "systemd", "set_systemd_default_target; ", "", d)}'
+ROOTFS_POSTPROCESS_COMMAND += '${@bb.utils.contains("DISTRO_FEATURES", "systemd", "set_systemd_default_target; systemd_create_users;", "", d)}'
 
 ROOTFS_POSTPROCESS_COMMAND += 'empty_var_volatile;'
 
@@ -30,24 +41,71 @@ ROOTFS_POSTPROCESS_COMMAND += 'empty_var_volatile;'
 SSH_DISABLE_DNS_LOOKUP ?= " ssh_disable_dns_lookup ; "
 ROOTFS_POSTPROCESS_COMMAND_append_qemuall = "${SSH_DISABLE_DNS_LOOKUP}"
 
+# Sort the user and group entries in /etc by ID in order to make the content
+# deterministic. Package installs are not deterministic, causing the ordering
+# of entries to change between builds. In case that this isn't desired,
+# the command can be overridden.
+#
+# Note that useradd-staticids.bbclass has to be used to ensure that
+# the numeric IDs of dynamically created entries remain stable.
+#
+# We want this to run as late as possible, in particular after
+# systemd_sysusers_create and set_user_group. Using _append is not
+# enough for that, set_user_group is added that way and would end
+# up running after us.
+SORT_PASSWD_POSTPROCESS_COMMAND ??= " sort_passwd; "
+python () {
+    d.appendVar('ROOTFS_POSTPROCESS_COMMAND', '${SORT_PASSWD_POSTPROCESS_COMMAND}')
+    d.appendVar('ROOTFS_POSTPROCESS_COMMAND', 'rootfs_reproducible;')
+}
 
+systemd_create_users () {
+	for conffile in ${IMAGE_ROOTFS}/usr/lib/sysusers.d/systemd.conf ${IMAGE_ROOTFS}/usr/lib/sysusers.d/systemd-remote.conf; do
+		[ -e $conffile ] || continue
+		grep -v "^#" $conffile | sed -e '/^$/d' | while read type name id comment; do
+		if [ "$type" = "u" ]; then
+			useradd_params="--shell /sbin/nologin"
+			[ "$id" != "-" ] && useradd_params="$useradd_params --uid $id"
+			[ "$comment" != "-" ] && useradd_params="$useradd_params --comment $comment"
+			useradd_params="$useradd_params --system $name"
+			eval useradd --root ${IMAGE_ROOTFS} $useradd_params || true
+		elif [ "$type" = "g" ]; then
+			groupadd_params=""
+			[ "$id" != "-" ] && groupadd_params="$groupadd_params --gid $id"
+			groupadd_params="$groupadd_params --system $name"
+			eval groupadd --root ${IMAGE_ROOTFS} $groupadd_params || true
+		elif [ "$type" = "m" ]; then
+			group=$id
+			if [ ! `grep -q "^${group}:" ${IMAGE_ROOTFS}${sysconfdir}/group` ]; then
+				eval groupadd --root ${IMAGE_ROOTFS} --system $group
+			fi
+			if [ ! `grep -q "^${name}:" ${IMAGE_ROOTFS}${sysconfdir}/passwd` ]; then
+				eval useradd --root ${IMAGE_ROOTFS} --shell /sbin/nologin --system $name
+			fi
+			eval usermod --root ${IMAGE_ROOTFS} -a -G $group $name
+		fi
+		done
+	done
+}
 
 #
 # A hook function to support read-only-rootfs IMAGE_FEATURES
 #
 read_only_rootfs_hook () {
 	# Tweak the mount option and fs_passno for rootfs in fstab
-	sed -i -e '/^[#[:space:]]*\/dev\/root/{s/defaults/ro/;s/\([[:space:]]*[[:digit:]]\)\([[:space:]]*\)[[:digit:]]$/\1\20/}' ${IMAGE_ROOTFS}/etc/fstab
+	if [ -f ${IMAGE_ROOTFS}/etc/fstab ]; then
+		sed -i -e '/^[#[:space:]]*\/dev\/root/{s/defaults/ro/;s/\([[:space:]]*[[:digit:]]\)\([[:space:]]*\)[[:digit:]]$/\1\20/}' ${IMAGE_ROOTFS}/etc/fstab
+	fi
 
 	# If we're using openssh and the /etc/ssh directory has no pre-generated keys,
 	# we should configure openssh to use the configuration file /etc/ssh/sshd_config_readonly
 	# and the keys under /var/run/ssh.
 	if [ -d ${IMAGE_ROOTFS}/etc/ssh ]; then
 		if [ -e ${IMAGE_ROOTFS}/etc/ssh/ssh_host_rsa_key ]; then
-			echo "SYSCONFDIR=/etc/ssh" >> ${IMAGE_ROOTFS}/etc/default/ssh
+			echo "SYSCONFDIR=\${SYSCONFDIR:-/etc/ssh}" >> ${IMAGE_ROOTFS}/etc/default/ssh
 			echo "SSHD_OPTS=" >> ${IMAGE_ROOTFS}/etc/default/ssh
 		else
-			echo "SYSCONFDIR=/var/run/ssh" >> ${IMAGE_ROOTFS}/etc/default/ssh
+			echo "SYSCONFDIR=\${SYSCONFDIR:-/var/run/ssh}" >> ${IMAGE_ROOTFS}/etc/default/ssh
 			echo "SSHD_OPTS='-f /etc/ssh/sshd_config_readonly'" >> ${IMAGE_ROOTFS}/etc/default/ssh
 		fi
 	fi
@@ -73,27 +131,6 @@ read_only_rootfs_hook () {
 			${IMAGE_ROOTFS}/etc/init.d/populate-volatile.sh
 		fi
 	fi
-
-	if ${@bb.utils.contains("DISTRO_FEATURES", "systemd", "true", "false", d)}; then
-	    # Update user database files so that services don't fail for a read-only systemd system
-	    for conffile in ${IMAGE_ROOTFS}/usr/lib/sysusers.d/systemd.conf ${IMAGE_ROOTFS}/usr/lib/sysusers.d/systemd-remote.conf; do
-		[ -e $conffile ] || continue
-		grep -v "^#" $conffile | sed -e '/^$/d' | while read type name id comment; do
-		    if [ "$type" = "u" ]; then
-			useradd_params=""
-			[ "$id" != "-" ] && useradd_params="$useradd_params --uid $id"
-			[ "$comment" != "-" ] && useradd_params="$useradd_params --comment $comment"
-			useradd_params="$useradd_params --system $name"
-			eval useradd --root ${IMAGE_ROOTFS} $useradd_params || true
-		    elif [ "$type" = "g" ]; then
-			groupadd_params=""
-			[ "$id" != "-" ] && groupadd_params="$groupadd_params --gid $id"
-			groupadd_params="$groupadd_params --system $name"
-			eval groupadd --root ${IMAGE_ROOTFS} $groupadd_params || true
-		    fi
-		done
-	    done
-	fi
 }
 
 #
@@ -106,7 +143,7 @@ zap_empty_root_password () {
 	if [ -e ${IMAGE_ROOTFS}/etc/passwd ]; then
 		sed -i 's%^root::%root:*:%' ${IMAGE_ROOTFS}/etc/passwd
 	fi
-} 
+}
 
 #
 # allow dropbear/openssh to accept root logins and logins from accounts with an empty password string
@@ -130,7 +167,10 @@ ssh_allow_empty_password () {
 	fi
 
 	if [ -d ${IMAGE_ROOTFS}${sysconfdir}/pam.d ] ; then
-		sed -i 's/nullok_secure/nullok/' ${IMAGE_ROOTFS}${sysconfdir}/pam.d/*
+		for f in `find ${IMAGE_ROOTFS}${sysconfdir}/pam.d/* -type f -exec test -e {} \; -print`
+		do
+			sed -i 's/nullok_secure/nullok/' $f
+		done
 	fi
 }
 
@@ -138,6 +178,11 @@ ssh_disable_dns_lookup () {
 	if [ -e ${IMAGE_ROOTFS}${sysconfdir}/ssh/sshd_config ]; then
 		sed -i -e 's:#UseDNS yes:UseDNS no:' ${IMAGE_ROOTFS}${sysconfdir}/ssh/sshd_config
 	fi
+}
+
+python sort_passwd () {
+    import rootfspostcommands
+    rootfspostcommands.sort_passwd(d.expand('${IMAGE_ROOTFS}${sysconfdir}'))
 }
 
 #
@@ -189,31 +234,13 @@ make_zimage_symlink_relative () {
 	fi
 }
 
-insert_feed_uris () {
-	
-	echo "Building feeds for [${DISTRO}].."
-
-	for line in ${FEED_URIS}
-	do
-		# strip leading and trailing spaces/tabs, then split into name and uri
-		line_clean="`echo "$line"|sed 's/^[ \t]*//;s/[ \t]*$//'`"
-		feed_name="`echo "$line_clean" | sed -n 's/\(.*\)##\(.*\)/\1/p'`"
-		feed_uri="`echo "$line_clean" | sed -n 's/\(.*\)##\(.*\)/\2/p'`"
-		
-		echo "Added $feed_name feed with URL $feed_uri"
-		
-		# insert new feed-sources
-		echo "src/gz $feed_name $feed_uri" >> ${IMAGE_ROOTFS}/etc/opkg/${feed_name}-feed.conf
-	done
-}
-
 python write_image_manifest () {
     from oe.rootfs import image_list_installed_packages
     from oe.utils import format_pkg_list
 
-    deploy_dir = d.getVar('DEPLOY_DIR_IMAGE', True)
-    link_name = d.getVar('IMAGE_LINK_NAME', True)
-    manifest_name = d.getVar('IMAGE_MANIFEST', True)
+    deploy_dir = d.getVar('IMGDEPLOYDIR')
+    link_name = d.getVar('IMAGE_LINK_NAME')
+    manifest_name = d.getVar('IMAGE_MANIFEST')
 
     if not manifest_name:
         return
@@ -226,17 +253,21 @@ python write_image_manifest () {
     if os.path.exists(manifest_name):
         manifest_link = deploy_dir + "/" + link_name + ".manifest"
         if os.path.lexists(manifest_link):
-            if d.getVar('RM_OLD_IMAGE', True) == "1" and \
-                    os.path.exists(os.path.realpath(manifest_link)):
-                os.remove(os.path.realpath(manifest_link))
             os.remove(manifest_link)
         os.symlink(os.path.basename(manifest_name), manifest_link)
 }
 
-# Can be use to create /etc/timestamp during image construction to give a reasonably 
+# Can be used to create /etc/timestamp during image construction to give a reasonably
 # sane default time setting
 rootfs_update_timestamp () {
-	date -u +%4Y%2m%2d%2H%2M%2S >${IMAGE_ROOTFS}/etc/timestamp
+	if [ "${REPRODUCIBLE_TIMESTAMP_ROOTFS}" != "" ]; then
+		# Convert UTC into %4Y%2m%2d%2H%2M%2S
+		sformatted=`date -u -d @${REPRODUCIBLE_TIMESTAMP_ROOTFS} +%4Y%2m%2d%2H%2M%2S`
+	else
+		sformatted=`date -u +%4Y%2m%2d%2H%2M%2S`
+	fi
+	echo $sformatted > ${IMAGE_ROOTFS}/etc/timestamp
+	bbnote "rootfs_update_timestamp: set /etc/timestamp to $sformatted"
 }
 
 # Prevent X from being started
@@ -274,4 +305,47 @@ rootfs_check_host_user_contaminated () {
 # Make any absolute links in a sysroot relative
 rootfs_sysroot_relativelinks () {
 	sysroot-relativelinks.py ${SDK_OUTPUT}/${SDKTARGETSYSROOT}
+}
+
+# Generated test data json file
+python write_image_test_data() {
+    from oe.data import export2json
+
+    testdata = "%s/%s.testdata.json" % (d.getVar('DEPLOY_DIR_IMAGE'), d.getVar('IMAGE_NAME'))
+    testdata_link = "%s/%s.testdata.json" % (d.getVar('DEPLOY_DIR_IMAGE'), d.getVar('IMAGE_LINK_NAME'))
+
+    bb.utils.mkdirhier(os.path.dirname(testdata))
+    searchString = "%s/"%(d.getVar("TOPDIR")).replace("//","/")
+    export2json(d, testdata,searchString=searchString,replaceString="")
+
+    if testdata_link != testdata:
+        if os.path.lexists(testdata_link):
+           os.remove(testdata_link)
+        os.symlink(os.path.basename(testdata), testdata_link)
+}
+write_image_test_data[vardepsexclude] += "TOPDIR"
+
+# Check for unsatisfied recommendations (RRECOMMENDS)
+python rootfs_log_check_recommends() {
+    log_path = d.expand("${T}/log.do_rootfs")
+    with open(log_path, 'r') as log:
+        for line in log:
+            if 'log_check' in line:
+                continue
+
+            if 'unsatisfied recommendation for' in line:
+                bb.warn('[log_check] %s: %s' % (d.getVar('PN'), line))
+}
+
+# Perform any additional adjustments needed to make rootf binary reproducible
+rootfs_reproducible () {
+	if [ "${REPRODUCIBLE_TIMESTAMP_ROOTFS}" != "" ]; then
+		# Convert UTC into %4Y%2m%2d%2H%2M%2S
+		sformatted=`date -u -d @${REPRODUCIBLE_TIMESTAMP_ROOTFS} +%4Y%2m%2d%2H%2M%2S`
+		echo $sformatted > ${IMAGE_ROOTFS}/etc/version
+		bbnote "rootfs_reproducible: set /etc/version to $sformatted"
+
+		find ${IMAGE_ROOTFS}/etc/gconf -name '%gconf.xml' -print0 | xargs -0r \
+		sed -i -e 's@\bmtime="[0-9][0-9]*"@mtime="'${REPRODUCIBLE_TIMESTAMP_ROOTFS}'"@g'
+	fi
 }

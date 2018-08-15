@@ -7,59 +7,69 @@ DEPENDS = "libxt"
 REQUIRED_DISTRO_FEATURES = "x11"
 
 LICENSE = "MIT"
-LIC_FILES_CHKSUM = "file://LICENCE;md5=33bcd4bce8f3c197f2aefbdbd2d299bc"
+LIC_FILES_CHKSUM = "file://LICENCE;md5=da6110d4ed1225a287eab2bf0ac0193b"
 
 SRC_URI = "git://git.tartarus.org/simon/puzzles.git \
            file://fix-compiling-failure-with-option-g-O.patch \
            file://0001-Use-labs-instead-of-abs.patch \
-           file://0001-rect-Fix-compiler-errors-about-uninitialized-use-of-.patch \
            file://0001-palisade-Fix-warnings-with-clang-on-arm.patch \
-"
-SRCREV = "346584bf6e38232be8773c24fd7dedcbd7b3d9ed"
-PE = "1"
+           file://0001-Use-Wno-error-format-overflow-if-the-compiler-suppor.patch \
+           "
+UPSTREAM_CHECK_COMMITS = "1"
+SRCREV = "2adf0052d66eae88c7a5e55e67fe16e13f7018b5"
+PE = "2"
 PV = "0.0+git${SRCPV}"
 
 S = "${WORKDIR}/git"
 
-inherit autotools-brokensep distro_features_check pkgconfig
+inherit autotools distro_features_check pkgconfig
 
-PACKAGECONFIG ??= "gtk2"
+CFLAGS_append = " -Wno-deprecated-declarations"
+
+PACKAGECONFIG ??= "gtk3"
 PACKAGECONFIG[gtk2] = "--with-gtk=2,,gtk+,"
 PACKAGECONFIG[gtk3] = "--with-gtk=3,,gtk+3,"
 
-do_configure_prepend () {
-    ./mkfiles.pl
+PACKAGES += "${PN}-extra"
+FILES_${PN} = ""
+FILES_${PN}-extra = "${prefix}/bin ${datadir}/applications"
+
+python __anonymous () {
+    var = d.expand("FILES_${PN}")
+    data = d.getVar(var, False)
+    for name in ("bridges", "fifteen", "inertia", "map", "samegame", "slant"):
+        data = data + " ${bindir}/%s" % name
+        data = data + " ${datadir}/applications/%s.desktop" % name
+    d.setVar(var, data)
 }
 
-FILES_${PN} = "${prefix}/bin/* ${datadir}/applications/*"
+do_configure_prepend () {
+    cd ${S}
+    ./mkfiles.pl
+    cd ${B}
+}
 
-do_install () {
-    rm -rf ${D}/*
-    export prefix=${D}
-    export DESTDIR=${D}
-    install -d ${D}/${prefix}/bin/
-    oe_runmake install
-
-
-    install -d ${D}/${datadir}/applications/
+do_install_append () {
+    # net conflicts with Samba, so rename it
+    mv ${D}${bindir}/net ${D}${bindir}/puzzles-net
 
     # Create desktop shortcuts
+    install -d ${D}/${datadir}/applications/
     cd ${D}/${prefix}/bin
     for prog in *; do
 	if [ -x $prog ]; then
             # Convert prog to Title Case
-            title=$(echo $prog | sed 's/\(^\| \)./\U&/g')
+            title=$(echo $prog | sed 's/puzzles-//' | sed 's/\(^\| \)./\U&/g')
 	    echo "making ${D}/${datadir}/applications/$prog.desktop"
 	    cat <<STOP > ${D}/${datadir}/applications/$prog.desktop
 [Desktop Entry]
 Name=$title
-Exec=${prefix}/bin/$prog
+Exec=${bindir}/$prog
 Icon=applications-games
 Terminal=false
 Type=Application
 Categories=Game;
 StartupNotify=true
-X-MB-SingleInstance=true
 STOP
         fi
     done

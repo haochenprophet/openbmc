@@ -1,4 +1,5 @@
 SUMMARY = "OpenPrinting printer support - filters"
+HOMEPAGE = "https://wiki.linuxfoundation.org/openprinting/start"
 DESCRIPTION = "Foomatic is a printer database designed to make it easier to set up \
 common printers for use with UNIX-like operating systems.\
 It provides the "glue" between a print spooler (like CUPS or lpr) and \
@@ -16,6 +17,10 @@ LICENSE = "GPLv2+"
 LIC_FILES_CHKSUM = "file://${WORKDIR}/foomatic-filters-${PV}/COPYING;md5=393a5ca445f6965873eca0259a17f833"
 
 SRC_URI = "http://www.openprinting.org/download/foomatic/foomatic-filters-${PV}.tar.gz"
+
+SRC_URI += "file://CVE-2015-8560.patch \
+            file://CVE-2015-8327.patch \
+           "
 
 SRC_URI[md5sum] = "b05f5dcbfe359f198eef3df5b283d896"
 SRC_URI[sha256sum] = "a2e2e53e502571e88eeb9010c45a0d54671f15707ee104f5c9c22b59ea7a33e3"

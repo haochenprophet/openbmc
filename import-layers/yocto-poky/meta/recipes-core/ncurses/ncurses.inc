@@ -7,15 +7,18 @@ SECTION = "libs"
 DEPENDS = "ncurses-native"
 DEPENDS_class-native = ""
 
-BINCONFIG = "${bindir}/ncurses5-config ${bindir}/ncursesw5-config"
+BINCONFIG = "${bindir}/ncurses5-config ${bindir}/ncursesw5-config \
+	${bindir}/ncurses6-config ${bindir}/ncursesw6-config"
 
 inherit autotools binconfig-disabled multilib_header pkgconfig
 
 # Upstream has useful patches at times at ftp://invisible-island.net/ncurses/
-SRC_URI = "git://anonscm.debian.org/collab-maint/ncurses.git"
+SRC_URI = "git://salsa.debian.org/debian/ncurses.git;protocol=https"
 
 EXTRA_AUTORECONF = "-I m4"
 CONFIG_SITE =+ "${WORKDIR}/config.cache"
+
+EXTRASITECONFIG = "CFLAGS='${CFLAGS} -I${SYSROOT_DESTDIR}${includedir}'"
 
 # Whether to enable separate widec libraries; must be 'true' or 'false'
 #
@@ -56,6 +59,7 @@ EX_TERMCAP_class-nativesdk = ":/etc/termcap:/usr/share/misc/termcap"
 EX_TERMINFO = ""
 EX_TERMINFO_class-native = ":/etc/terminfo:/usr/share/terminfo:/usr/share/misc/terminfo:/lib/terminfo"
 EX_TERMINFO_class-nativesdk = ":/etc/terminfo:/usr/share/terminfo:/usr/share/misc/terminfo:/lib/terminfo"
+EX_TERMLIB ?= "tinfo"
 
 # Helper function for do_configure to allow multiple configurations
 # $1 the directory to run configure in
@@ -65,7 +69,6 @@ ncurses_configure() {
 	cd $1
 	shift
 	oe_runconf \
-	        --disable-static \
 	        --without-debug \
 	        --without-ada \
 	        --without-gpm \
@@ -78,7 +81,7 @@ ncurses_configure() {
 	        --disable-big-core \
 	        --program-prefix= \
 	        --with-ticlib \
-	        --with-termlib=tinfo \
+	        --with-termlib=${EX_TERMLIB} \
 	        --enable-sigwinch \
 	        --enable-pc-files \
 	        --disable-rpath-hack \
@@ -199,7 +202,10 @@ do_install() {
                 ln -sf xterm-color ${D}${sysconfdir}/terminfo/x/xterm
         fi
 
-        rm -f ${D}${libdir}/terminfo
+        # When changing ${libdir} to e.g. /usr/lib/myawesomelib/ ncurses 
+        # still installs '/usr/lib/terminfo', so try to rm both 
+        # the proper path and a slightly hardcoded one
+        rm -f ${D}${libdir}/terminfo ${D}${prefix}/lib/terminfo
 
         # create linker scripts for libcurses.so and libncurses to
         # link against -ltinfo when needed. Some builds might break
@@ -225,7 +231,7 @@ do_install() {
         if [ ! -d "${D}${base_libdir}" ]; then
             # Setting base_libdir to libdir as is done in the -native
             # case will skip this code
-            mkdir ${D}${base_libdir}
+            mkdir -p ${D}${base_libdir}
             mv ${D}${libdir}/libncurses.so.* ${D}${base_libdir}
             ! ${ENABLE_WIDEC} || \
                 mv ${D}${libdir}/libncursesw.so.* ${D}${base_libdir}
@@ -278,6 +284,8 @@ FILES_${PN} = "\
   ${bindir}/tset \
   ${bindir}/ncurses5-config \
   ${bindir}/ncursesw5-config \
+  ${bindir}/ncurses6-config \
+  ${bindir}/ncursesw6-config \
   ${datadir}/tabset \
 "
 

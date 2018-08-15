@@ -28,11 +28,7 @@ import sys
 import warnings
 from bb.compat import total_ordering
 from collections import Mapping
-
-try:
-    import sqlite3
-except ImportError:
-    from pysqlite2 import dbapi2 as sqlite3
+import sqlite3
 
 sqlversion = sqlite3.sqlite_version_info
 if sqlversion[0] < 3 or (sqlversion[0] == 3 and sqlversion[1] < 3):
@@ -92,9 +88,9 @@ class SQLTable(collections.MutableMapping):
         self._execute("DELETE from %s where key=?;" % self.table, [key])
 
     def __setitem__(self, key, value):
-        if not isinstance(key, basestring):
+        if not isinstance(key, str):
             raise TypeError('Only string keys are supported')
-        elif not isinstance(value, basestring):
+        elif not isinstance(value, str):
             raise TypeError('Only string values are supported')
 
         data = self._execute("SELECT * from %s where key=?;" %
@@ -178,7 +174,7 @@ class PersistData(object):
         """
         Return a list of key + value pairs for a domain
         """
-        return self.data[domain].items()
+        return list(self.data[domain].items())
 
     def getValue(self, domain, key):
         """
@@ -207,8 +203,8 @@ def connect(database):
 def persist(domain, d):
     """Convenience factory for SQLTable objects based upon metadata"""
     import bb.utils
-    cachedir = (d.getVar("PERSISTENT_DIR", True) or
-                d.getVar("CACHE", True))
+    cachedir = (d.getVar("PERSISTENT_DIR") or
+                d.getVar("CACHE"))
     if not cachedir:
         logger.critical("Please set the 'PERSISTENT_DIR' or 'CACHE' variable")
         sys.exit(1)

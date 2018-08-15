@@ -8,30 +8,46 @@ Subject: [PATCH 3/5] Our pre/postinsts expect $D to be set when running in a
 Upstream-Status: Inappropriate [OE Specific]
 
 RP 2011/12/07
+ALIMON 2016/05/26
+ALIMON 2017/02/21
 ---
- src/script.c | 31 ++-----------------------------
- 1 file changed, 2 insertions(+), 29 deletions(-)
+ src/script.c | 44 +++-----------------------------------------
+ 1 file changed, 3 insertions(+), 41 deletions(-)
 
 diff --git a/src/script.c b/src/script.c
-index a958145..24c49f9 100644
+index 2f252ae..768a9d1 100644
 --- a/src/script.c
 +++ b/src/script.c
-@@ -100,36 +100,9 @@ maintscript_pre_exec(struct command *cmd)
- 	size_t instdirl = strlen(instdir);
- 
- 	if (*instdir) {
--		if (strncmp(admindir, instdir, instdirl) != 0)
+@@ -97,48 +97,10 @@ setexecute(const char *path, struct stat *stab)
+ static const char *
+ maintscript_pre_exec(struct command *cmd)
+ {
+-	const char *admindir = dpkg_db_get_dir();
+-	const char *changedir;
+-	size_t instdirlen = strlen(instdir);
+-
+-	if (instdirlen > 0 && fc_script_chrootless)
+-		changedir = instdir;
+-	else
+-		changedir = "/";
+-
+-	if (instdirlen > 0 && !fc_script_chrootless) {
+-		if (strncmp(admindir, instdir, instdirlen) != 0)
 -			ohshit(_("admindir must be inside instdir for dpkg to work properly"));
--		if (setenv("DPKG_ADMINDIR", admindir + instdirl, 1) < 0)
+-		if (setenv("DPKG_ADMINDIR", admindir + instdirlen, 1) < 0)
+-			ohshite(_("unable to setenv for subprocesses"));
+-		if (setenv("DPKG_ROOT", "", 1) < 0)
 -			ohshite(_("unable to setenv for subprocesses"));
 -
 -		if (chroot(instdir))
 -			ohshite(_("failed to chroot to '%.250s'"), instdir);
--	}
++	if (*instdir) {
++		setenv("D", instdir, 1);
+ 	}
 -	/* Switch to a known good directory to give the maintainer script
 -	 * a saner environment, also needed after the chroot(). */
--	if (chdir("/"))
--		ohshite(_("failed to chdir to '%.255s'"), "/");
+-	if (chdir(changedir))
+-		ohshite(_("failed to chdir to '%.255s'"), changedir);
 -	if (debug_has_flag(dbg_scripts)) {
 -		struct varbuf args = VARBUF_INIT;
 -		const char **argv = cmd->argv;
@@ -44,13 +60,12 @@ index a958145..24c49f9 100644
 -		debug(dbg_scripts, "fork/exec %s (%s )", cmd->filename,
 -		      args.buf);
 -		varbuf_destroy(&args);
-+		setenv("D", instdir, 1);
- 	}
--	if (!instdirl)
+-	}
+-	if (instdirlen == 0 || fc_script_chrootless)
 -		return cmd->filename;
 -
--	assert(strlen(cmd->filename) >= instdirl);
--	return cmd->filename + instdirl;
+-	assert(strlen(cmd->filename) >= instdirlen);
+-	return cmd->filename + instdirlen;
 +	return cmd->filename;
  }
  

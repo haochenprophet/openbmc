@@ -6,6 +6,8 @@
 # to the distro running on the build machine.
 #
 
-UNINATIVE_URL = "http://downloads.yoctoproject.org/releases/uninative/0.95/"
-UNINATIVE_CHECKSUM[i686] ?= "5f27d7e0f4dd2ed80a7ff6a0d88af107b08e00765b31ed3aa180cc5ce15b0811"
-UNINATIVE_CHECKSUM[x86_64] ?= "26d46c61ad88cc245e31c88549717c0092a838d111b93ec169d88b08cc027581"
+UNINATIVE_MAXGLIBCVERSION = "2.27"
+
+UNINATIVE_URL ?= "http://downloads.yoctoproject.org/releases/uninative/1.9/"
+UNINATIVE_CHECKSUM[i686] ?= "83a4f927da81d9889ef0cbe5c12cb782e21c6cc11e6155600b94ff0c99576dce"
+UNINATIVE_CHECKSUM[x86_64] ?= "c26622a1f27dbf5b25de986b11584b5c5b2f322d9eb367f705a744f58a5561ec"

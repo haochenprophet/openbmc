@@ -1,5 +1,5 @@
 DESCRIPTION = "This package contains the Parser.pm module with friends."
-
+HOMEPAGE = "https://metacpan.org/release/HTML-Parser"
 SECTION = "libs"
 LICENSE = "Artistic-1.0 | GPL-1.0+"
 
@@ -19,7 +19,7 @@ EXTRA_CPANFLAGS = "EXPATLIBPATH=${STAGING_LIBDIR} EXPATINCPATH=${STAGING_INCDIR}
 inherit cpan
 
 do_compile() {
-	export LIBC="$(find ${STAGING_DIR_TARGET}/${base_libdir}/ -name 'libc-*.so')"
-	cpan_do_compile
+    export LIBC="$(find ${STAGING_DIR_TARGET}/${base_libdir}/ -name 'libc-*.so')"
+    cpan_do_compile
 }
 BBCLASSEXTEND = "native"

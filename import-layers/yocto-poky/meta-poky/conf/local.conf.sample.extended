@@ -47,6 +47,13 @@
 # less than 128MB RAM.
 #ENABLE_BINARY_LOCALE_GENERATION = "1"
 
+# If GLIBC_SPLIT_LC_PACKAGES is set to a non-zero value, convert
+# glibc-binary-localedata-XX-YY to be a meta package depending on
+# glibc-binary-localedata-XX-YY-lc-address and so on. This enables
+# saving quite some space if someone doesn't need LC_COLLATE for
+# example.
+#GLIBC_SPLIT_LC_PACKAGES = "1"
+
 # Set GLIBC_GENERATE_LOCALES to the locales you wish to generate should you not
 # wish to perform the time-consuming step of generating all LIBC locales.
 # NOTE: If removing en_US.UTF-8 you will also need to uncomment, and set
@@ -265,9 +272,6 @@
 #COPYLEFT_RECIPE_TYPES = 'target'
 #
 
-# Remove the old image before the new one generated to save disk space
-#RM_OLD_IMAGE = "1"
-
 #
 # GCC/LD FLAGS to enable more secure code generation
 #
@@ -370,16 +374,6 @@
 #
 #IPK_HIERARCHICAL_FEED = "1"
 #
-
-# Using RPM4
-#
-# Currently the rootfs_rpm code has a hard depends on rpmresolve:do_populate_sysroot,
-# when using rpm4 the rpmresolve code will not compile due to a missing header file.
-# That dependency needs to be removed when using RPM4, also the PREFERRED_VERSION needs
-# to be set. This example shows how to enable rpm4
-# PREFERRED_VERSION_rpm = "4.11.2"
-# PREFERRED_VERSION_rpm-native = "4.11.2"
-# RPMROOTFSDEPENDS_remove = "rpmresolve-native:do_populate_sysroot"
 
 #
 # Use busybox/mdev for system initialization

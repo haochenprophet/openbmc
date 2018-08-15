@@ -4,12 +4,10 @@
 
 <appendix id='sdk-appendix-customizing'>
 
-<title>Customizing the SDK</title>
+<title>Customizing the Extensible SDK</title>
 
 <para>
-    This appendix presents customizations you can apply to both the standard
-    and extensible SDK.
-    Each subsection identifies the type of SDK to which the section applies.
+    This appendix presents customizations you can apply to the extensible SDK.
 </para>
 
 <section id='sdk-configuring-the-extensible-sdk'>
@@ -150,9 +148,7 @@
             <listitem><para>
                 If your OpenEmbedded build system setup uses a different
                 environment setup script other than
-                <ulink url='&YOCTO_DOCS_REF_URL;#structure-core-script'><filename>&OE_INIT_FILE;</filename></ulink>
-                or
-                <ulink url='&YOCTO_DOCS_REF_URL;#structure-memres-core-script'><filename>oe-init-build-env-memres</filename></ulink>,
+                <ulink url='&YOCTO_DOCS_REF_URL;#structure-core-script'><filename>&OE_INIT_FILE;</filename></ulink>,
                 then you must set
                 <ulink url='&YOCTO_DOCS_REF_URL;#var-OE_INIT_ENV_SCRIPT'><filename>OE_INIT_ENV_SCRIPT</filename></ulink>
                 to point to the environment setup script you use.
@@ -291,7 +287,7 @@
                         for the SDK alone, create a
                         <filename>conf/sdk-extra.conf</filename> either in
                         your
-                        <ulink url='&YOCTO_DOCS_DEV_URL;#build-directory'>Build Directory</ulink>
+                        <ulink url='&YOCTO_DOCS_REF_URL;#build-directory'>Build Directory</ulink>
                         or within any layer and put your
                         <filename>SSTATE_MIRRORS</filename> setting within
                         that file.
@@ -380,6 +376,20 @@
             "<link linkend='sdk-providing-additional-installable-extensible-sdk-content'>Providing Additional Installable Extensible SDK Content</link>"
             section for more information.
         </note>
+    </para>
+
+    <para>
+        You can explicitly control whether or not to include the toolchain
+        when you build an SDK by setting the
+        <ulink url='&YOCTO_DOCS_REF_URL;#var-SDK_INCLUDE_TOOLCHAIN'><filename>SDK_INCLUDE_TOOLCHAIN</filename></ulink>
+        variable to "1".
+        In particular, it is useful to include the toolchain when you
+        have set <filename>SDK_EXT_TYPE</filename> to
+        "minimal", which by default, excludes the toolchain.
+        Also, it is helpful if you are building a small SDK for use with
+        an IDE, such as <trademark class='trade'>Eclipse</trademark>, or some
+        other tool where you do not want to take extra steps to install a
+        toolchain.
     </para>
 </section>
 </appendix>
